@@ -2,6 +2,28 @@ import Foundation
 import AppKit
 import Combine
 
+enum AppTheme: String, CaseIterable, Identifiable {
+    case system, light, dark
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .system: return "System"
+        case .light: return "Light"
+        case .dark: return "Dark"
+        }
+    }
+
+    var nsAppearance: NSAppearance? {
+        switch self {
+        case .system: return nil
+        case .light: return NSAppearance(named: .aqua)
+        case .dark: return NSAppearance(named: .darkAqua)
+        }
+    }
+}
+
 enum WindowSizePreset: String, CaseIterable, Identifiable {
     case small, medium, large, extraLarge
 
@@ -35,10 +57,21 @@ final class Settings: ObservableObject {
         }
     }
 
+    @Published var theme: AppTheme {
+        didSet {
+            UserDefaults.standard.set(theme.rawValue, forKey: Self.themeKey)
+            NSApp.appearance = theme.nsAppearance
+        }
+    }
+
     private static let sizeKey = "defaultWindowSize"
+    private static let themeKey = "appTheme"
 
     private init() {
-        let raw = UserDefaults.standard.string(forKey: Self.sizeKey) ?? ""
-        self.defaultWindowSize = WindowSizePreset(rawValue: raw) ?? .medium
+        let rawSize = UserDefaults.standard.string(forKey: Self.sizeKey) ?? ""
+        self.defaultWindowSize = WindowSizePreset(rawValue: rawSize) ?? .medium
+
+        let rawTheme = UserDefaults.standard.string(forKey: Self.themeKey) ?? ""
+        self.theme = AppTheme(rawValue: rawTheme) ?? .system
     }
 }

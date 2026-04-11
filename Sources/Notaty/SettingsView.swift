@@ -14,8 +14,17 @@ struct SettingsView: View {
                 }
                 .pickerStyle(.inline)
             }
+
+            Section("Appearance") {
+                Picker("Theme", selection: $settings.theme) {
+                    ForEach(AppTheme.allCases) { theme in
+                        Text(theme.label).tag(theme)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
         }
         .formStyle(.grouped)
-        .frame(width: 380, height: 260)
+        .frame(width: 380, height: 340)
     }
 }
