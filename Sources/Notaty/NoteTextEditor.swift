@@ -35,6 +35,12 @@ struct NoteTextEditor: NSViewRepresentable {
     }
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
+        // The Coordinator is created once by SwiftUI and reused across updates.
+        // Re-point it at the CURRENT binding every update so that after a tab
+        // switch the delegate writes to the newly-selected note, not the one
+        // whose binding was captured when makeCoordinator first ran.
+        context.coordinator.text = $text
+
         guard let textView = scrollView.documentView as? NSTextView else { return }
         if textView.string != text {
             let selection = textView.selectedRanges

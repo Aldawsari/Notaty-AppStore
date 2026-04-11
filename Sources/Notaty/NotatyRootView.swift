@@ -9,6 +9,7 @@ struct NotatyRootView: View {
             Divider()
             if let id = store.selectedID, store.notes.contains(where: { $0.id == id }) {
                 NoteView(noteID: id)
+                    .id(id)
             } else {
                 Color.clear
             }
