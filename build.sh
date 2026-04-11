@@ -25,7 +25,11 @@ fi
 
 echo "Assembling ${APP}..."
 mkdir -p "$APP/Contents/MacOS"
+mkdir -p "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/${APP_NAME}"
+if [[ -f "$ROOT/AppIcon.icns" ]]; then
+  cp "$ROOT/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
+fi
 
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -46,10 +50,31 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <string>APPL</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>LSUIElement</key>
     <true/>
+    <key>NSScreenCaptureUsageDescription</key>
+    <string>Notaty needs Screen Recording permission to capture regions of the screen for OCR.</string>
 </dict>
 </plist>
 PLIST
+
+CERT_NAME="Notaty Local Dev"
+
+# TCC identifies ad-hoc signed apps by the binary's cdhash, which changes on
+# every rebuild. To persist Screen Recording permission across rebuilds we
+# need a STABLE signing identity. If a self-signed certificate named
+# "Notaty Local Dev" exists in the login keychain, sign with it; otherwise
+# fall back to ad-hoc signing (permission will reset on every build).
+#
+# To set up the persistent cert: run ./setup-signing.sh once.
+if security find-certificate -c "$CERT_NAME" 2>/dev/null | grep -q "$CERT_NAME"; then
+  echo "Signing ${APP} with ${CERT_NAME}..."
+  codesign --force --deep --sign "$CERT_NAME" "$APP"
+else
+  echo "Ad-hoc signing ${APP} (run ./setup-signing.sh once to persist TCC permissions)..."
+  codesign --force --deep --sign - "$APP"
+fi
 
 echo "Built ${APP}"

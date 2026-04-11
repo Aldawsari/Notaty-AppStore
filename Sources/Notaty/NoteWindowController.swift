@@ -18,11 +18,17 @@ final class NoteWindowController: NSWindowController {
         window.titlebarAppearsTransparent = true
         window.minSize = NSSize(width: 280, height: 180)
         window.isReleasedWhenClosed = false
+        // Match Settings: opaque, windowBackgroundColor, no popover material.
+        window.isOpaque = true
+        window.backgroundColor = NSColor.windowBackgroundColor
         window.contentViewController = NSHostingController(rootView: NotatyRootView())
 
         super.init(window: window)
 
-        // Keep the window title in sync with the currently selected note.
+        // Keep the window title in sync with the currently selected note's
+        // title. `.removeDuplicates()` ensures the `window?.title` setter only
+        // runs when the resolved string actually changes, so body-only edits
+        // don't hit AppKit.
         cancellable = Publishers.CombineLatest(
             NotesStore.shared.$notes,
             NotesStore.shared.$selectedID
@@ -33,6 +39,7 @@ final class NoteWindowController: NSWindowController {
             return trimmed.isEmpty ? "Untitled" : trimmed
         }
         .removeDuplicates()
+        .receive(on: DispatchQueue.main)
         .sink { [weak window] title in
             window?.title = title
         }

@@ -5,6 +5,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private let windowController = NoteWindowController()
     private var settingsCancellable: AnyCancellable?
+    private var outsideClickMonitor: Any?
+    private var localEscMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.appearance = Settings.shared.theme.nsAppearance
@@ -168,13 +170,63 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func toggleWindow() {
         guard let window = windowController.window else { return }
         if window.isVisible {
-            window.orderOut(nil)
+            hideWindow()
             return
         }
         NSApp.activate(ignoringOtherApps: true)
         applyDefaultSize(Settings.shared.defaultWindowSize.size, reposition: false)
         positionUnderStatusItem(window)
+
+        // Fade in.
+        window.alphaValue = 0
         window.makeKeyAndOrderFront(nil)
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.12
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            window.animator().alphaValue = 1
+        }
+        installDismissMonitors()
+    }
+
+    private func hideWindow() {
+        guard let window = windowController.window, window.isVisible else { return }
+        removeDismissMonitors()
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.10
+            context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            window.animator().alphaValue = 0
+        }, completionHandler: {
+            window.orderOut(nil)
+            window.alphaValue = 1
+        })
+    }
+
+    private func installDismissMonitors() {
+        // Click outside the note window → hide (native popover behavior).
+        outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching: [.leftMouseDown, .rightMouseDown]
+        ) { [weak self] _ in
+            self?.hideWindow()
+        }
+        // Escape inside the window → hide.
+        localEscMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            if event.keyCode == 53 && event.window === self?.windowController.window {
+                self?.hideWindow()
+                return nil
+            }
+            return event
+        }
+    }
+
+    private func removeDismissMonitors() {
+        if let m = outsideClickMonitor {
+            NSEvent.removeMonitor(m)
+            outsideClickMonitor = nil
+        }
+        if let m = localEscMonitor {
+            NSEvent.removeMonitor(m)
+            localEscMonitor = nil
+        }
     }
 
     private func applyDefaultSize(_ size: NSSize, reposition: Bool) {
@@ -203,6 +255,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func startOCRCapture() {
+        // Screen Recording permission is required for CGWindowListCreateImage
+        // to see anything other than the desktop wallpaper. On unsigned local
+        // builds the TCC prompt doesn't always appear automatically, so ask
+        // for it explicitly the first time and fall through only when granted.
+        if !CGPreflightScreenCaptureAccess() {
+            _ = CGRequestScreenCaptureAccess()
+            let alert = NSAlert()
+            alert.messageText = "Screen Recording permission required"
+            alert.informativeText = """
+            Notaty needs Screen Recording permission to capture a region of the screen for OCR.
+
+            Open System Settings → Privacy & Security → Screen Recording and enable Notaty, then quit and relaunch Notaty.
+            """
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: "Open System Settings")
+            alert.addButton(withTitle: "Cancel")
+            if alert.runModal() == .alertFirstButtonReturn {
+                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+            return
+        }
+
         guard let window = windowController.window else { return }
         let wasVisible = window.isVisible
         if wasVisible { window.orderOut(nil) }
@@ -210,6 +286,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ScreenRegionSelector.begin { [weak self] rect in
             guard let self else { return }
             if let rect, let image = ScreenCapture.capture(rect: rect) {
+                Self.playShutterSound()
                 OCRService.recognize(image: image) { result in
                     switch result {
                     case .success(let text):
@@ -255,6 +332,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
         positionUnderStatusItem(window)
         window.makeKeyAndOrderFront(nil)
+    }
+
+    private static func playShutterSound() {
+        let candidates = [
+            "/System/Library/Components/CoreAudio.component/Contents/SharedSupport/SystemSounds/system/Shutter.aif",
+            "/System/Library/Components/CoreAudio.component/Contents/SharedSupport/SystemSounds/system/Grab.aif",
+            "/System/Library/Components/CoreAudio.component/Contents/SharedSupport/SystemSounds/system/Screen Capture.aif",
+        ]
+        for path in candidates {
+            if FileManager.default.fileExists(atPath: path),
+               let sound = NSSound(contentsOfFile: path, byReference: true) {
+                sound.play()
+                return
+            }
+        }
+        NSSound.beep()
     }
 
     private static func ocrTimestamp() -> String {

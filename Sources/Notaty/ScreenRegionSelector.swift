@@ -1,11 +1,26 @@
 import AppKit
+import CoreGraphics
 
-// Full-screen overlay that lets the user drag a rectangle. Calls the
-// completion handler with the selected rect in screen coordinates (Cocoa
-// origin: bottom-left of the main display), or nil if the user cancelled.
+// NSPanel subclass that can become key so it receives keyboard events for
+// Esc-to-cancel, and that accepts mouse events without stealing activation.
+private final class OverlayPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+}
+
+// Per-display overlay. Macos window servers often mis-handle a single
+// borderless window that spans displays (the overlay becomes invisible or
+// non-interactive on the secondary display). Using one non-activating panel
+// PER screen guarantees each display gets its own event-routing target.
+//
+// Each panel's view drives a SelectorView that computes its selection rect
+// in its own screen-local space, then converts to global Cocoa before
+// calling the completion handler.
 final class ScreenRegionSelector: NSObject, NSWindowDelegate {
-    private var windows: [NSWindow] = []
+    private var panels: [NSPanel] = []
     private var completion: ((NSRect?) -> Void)?
+    private var retainSelf: ScreenRegionSelector?
+    private var finished = false
 
     static func begin(_ completion: @escaping (NSRect?) -> Void) {
         let selector = ScreenRegionSelector()
@@ -13,54 +28,59 @@ final class ScreenRegionSelector: NSObject, NSWindowDelegate {
         selector.show(completion: completion)
     }
 
-    // Self-retain so the selector lives until the user finishes.
-    private var retainSelf: ScreenRegionSelector?
-
     private func show(completion: @escaping (NSRect?) -> Void) {
         self.completion = completion
-        for screen in NSScreen.screens {
-            let window = NSWindow(
-                contentRect: screen.frame,
-                styleMask: [.borderless],
+
+        let screens = NSScreen.screens
+        guard !screens.isEmpty else {
+            finish(with: nil)
+            return
+        }
+
+        for screen in screens {
+            let panel = OverlayPanel(
+                contentRect: NSRect(origin: .zero, size: screen.frame.size),
+                styleMask: [.borderless, .nonactivatingPanel],
                 backing: .buffered,
-                defer: false,
-                screen: screen
+                defer: false
             )
-            window.level = .screenSaver
-            window.backgroundColor = NSColor.black.withAlphaComponent(0.25)
-            window.isOpaque = false
-            window.hasShadow = false
-            window.ignoresMouseEvents = false
-            window.acceptsMouseMovedEvents = true
-            window.isReleasedWhenClosed = false
-            window.delegate = self
+            panel.isFloatingPanel = true
+            panel.worksWhenModal = true
+            panel.level = .screenSaver
+            panel.backgroundColor = NSColor.black.withAlphaComponent(0.25)
+            panel.isOpaque = false
+            panel.hasShadow = false
+            panel.ignoresMouseEvents = false
+            panel.acceptsMouseMovedEvents = true
+            panel.isReleasedWhenClosed = false
+            panel.hidesOnDeactivate = false
+            panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+            panel.delegate = self
+            panel.setFrame(screen.frame, display: true)
 
             let view = SelectorView(frame: NSRect(origin: .zero, size: screen.frame.size))
-            view.onSelection = { [weak self] rectInView in
-                guard let self else { return }
-                // Convert view-local rect to screen coordinates.
-                let screenRect = NSRect(
-                    x: screen.frame.origin.x + rectInView.origin.x,
-                    y: screen.frame.origin.y + rectInView.origin.y,
-                    width: rectInView.size.width,
-                    height: rectInView.size.height
-                )
-                self.finish(with: screenRect)
+            view.screenOriginInGlobalCocoa = screen.frame.origin
+            view.onSelection = { [weak self] globalRect in
+                self?.finish(with: globalRect)
             }
             view.onCancel = { [weak self] in self?.finish(with: nil) }
+            panel.contentView = view
 
-            window.contentView = view
-            window.makeKeyAndOrderFront(nil)
-            windows.append(window)
+            panel.orderFrontRegardless()
+            panel.makeFirstResponder(view)
+            panels.append(panel)
         }
+
         NSApp.activate(ignoringOtherApps: true)
     }
 
     private func finish(with rect: NSRect?) {
+        guard !finished else { return }
+        finished = true
         let completion = self.completion
         self.completion = nil
-        for window in windows { window.orderOut(nil) }
-        windows.removeAll()
+        for panel in panels { panel.orderOut(nil) }
+        panels.removeAll()
         completion?(rect)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
             self?.retainSelf = nil
@@ -69,6 +89,8 @@ final class ScreenRegionSelector: NSObject, NSWindowDelegate {
 }
 
 private final class SelectorView: NSView {
+    // Origin of this view's host screen in global Cocoa coordinates.
+    var screenOriginInGlobalCocoa: NSPoint = .zero
     var onSelection: ((NSRect) -> Void)?
     var onCancel: (() -> Void)?
 
@@ -77,6 +99,7 @@ private final class SelectorView: NSView {
     private var trackingArea: NSTrackingArea?
 
     override var acceptsFirstResponder: Bool { true }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override func becomeFirstResponder() -> Bool { true }
 
     override func updateTrackingAreas() {
@@ -84,7 +107,7 @@ private final class SelectorView: NSView {
         if let trackingArea { removeTrackingArea(trackingArea) }
         let area = NSTrackingArea(
             rect: bounds,
-            options: [.activeAlways, .cursorUpdate, .mouseMoved],
+            options: [.activeAlways, .cursorUpdate, .mouseMoved, .inVisibleRect],
             owner: self,
             userInfo: nil
         )
@@ -92,6 +115,9 @@ private final class SelectorView: NSView {
         trackingArea = area
     }
 
+    override func resetCursorRects() {
+        addCursorRect(bounds, cursor: .crosshair)
+    }
     override func cursorUpdate(with event: NSEvent) { NSCursor.crosshair.set() }
     override func mouseEntered(with event: NSEvent) { NSCursor.crosshair.set() }
     override func mouseMoved(with event: NSEvent) { NSCursor.crosshair.set() }
@@ -105,16 +131,27 @@ private final class SelectorView: NSView {
     override func mouseDragged(with event: NSEvent) {
         guard let start = startPoint else { return }
         let current = convert(event.locationInWindow, from: nil)
-        currentRect = rect(from: start, to: current)
+        currentRect = makeRect(from: start, to: current)
         needsDisplay = true
     }
 
     override func mouseUp(with event: NSEvent) {
+        defer {
+            startPoint = nil
+            currentRect = nil
+            needsDisplay = true
+        }
         guard let rect = currentRect, rect.size.width >= 3, rect.size.height >= 3 else {
             onCancel?()
             return
         }
-        onSelection?(rect)
+        let globalRect = NSRect(
+            x: screenOriginInGlobalCocoa.x + rect.origin.x,
+            y: screenOriginInGlobalCocoa.y + rect.origin.y,
+            width: rect.size.width,
+            height: rect.size.height
+        )
+        onSelection?(globalRect)
     }
 
     override func keyDown(with event: NSEvent) {
@@ -125,19 +162,17 @@ private final class SelectorView: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         if let rect = currentRect {
-            // Punch a transparent hole for the selection so the user sees
-            // what will be captured.
             NSColor.clear.setFill()
             rect.fill(using: .copy)
 
-            NSColor.systemBlue.withAlphaComponent(0.9).setStroke()
+            NSColor.systemBlue.withAlphaComponent(0.95).setStroke()
             let path = NSBezierPath(rect: rect.insetBy(dx: 0.5, dy: 0.5))
             path.lineWidth = 1.5
             path.stroke()
         }
     }
 
-    private func rect(from a: NSPoint, to b: NSPoint) -> NSRect {
+    private func makeRect(from a: NSPoint, to b: NSPoint) -> NSRect {
         NSRect(
             x: min(a.x, b.x),
             y: min(a.y, b.y),
@@ -147,27 +182,38 @@ private final class SelectorView: NSView {
     }
 }
 
-// Captures a screen-coordinate rect to a CGImage using CGWindowList.
-// Returns nil if the rect is empty or capture fails.
+// Captures a global-Cocoa rect to a CGImage. Multi-display safe: picks the
+// NSScreen that contains (or best-intersects) the rect, converts the rect
+// into that display's local Quartz coordinates (top-left origin), and uses
+// CGDisplayCreateImage against that display's CGDirectDisplayID.
 enum ScreenCapture {
     static func capture(rect: NSRect) -> CGImage? {
         guard rect.width > 0, rect.height > 0 else { return nil }
 
-        // CGWindowListCreateImage uses flipped (top-left) coordinates on the
-        // primary display. Convert from Cocoa's bottom-left origin.
-        guard let primary = NSScreen.screens.first else { return nil }
-        let primaryHeight = primary.frame.height
-        let flipped = CGRect(
-            x: rect.origin.x,
-            y: primaryHeight - rect.origin.y - rect.height,
+        let screens = NSScreen.screens
+        let screen = screens.first(where: { $0.frame.contains(rect) })
+            ?? screens.max(by: {
+                $0.frame.intersection(rect).area < $1.frame.intersection(rect).area
+            })
+            ?? NSScreen.main
+        guard let screen,
+              let displayID = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID
+        else { return nil }
+
+        let screenFrame = screen.frame
+        let xLocal = rect.origin.x - screenFrame.origin.x
+        let yLocal = screenFrame.height - (rect.origin.y - screenFrame.origin.y) - rect.height
+        let localRect = CGRect(
+            x: xLocal,
+            y: yLocal,
             width: rect.width,
             height: rect.height
         )
-        return CGWindowListCreateImage(
-            flipped,
-            .optionOnScreenOnly,
-            kCGNullWindowID,
-            [.bestResolution]
-        )
+
+        return CGDisplayCreateImage(displayID, rect: localRect)
     }
+}
+
+private extension CGRect {
+    var area: CGFloat { max(0, width) * max(0, height) }
 }

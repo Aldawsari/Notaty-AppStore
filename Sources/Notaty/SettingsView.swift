@@ -4,7 +4,7 @@ import AppKit
 struct SettingsView: View {
     @ObservedObject private var settings = Settings.shared
 
-    private let appVersion = "v0.5"
+    private let appVersion = "v0.8"
     private let accent = Color.accentColor
 
     var body: some View {
@@ -80,27 +80,22 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var appIcon: some View {
-        if let icon = NSImage(named: "AppIcon") {
-            Image(nsImage: icon)
-                .resizable()
-                .frame(width: 44, height: 44)
-                .cornerRadius(10)
-        } else {
-            RoundedRectangle(cornerRadius: 10)
-                .fill(
-                    LinearGradient(
-                        colors: [accent.opacity(0.9), accent.opacity(0.55)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .frame(width: 44, height: 44)
-                .overlay(
-                    Image(systemName: "note.text")
-                        .font(.system(size: 22, weight: .semibold))
-                        .foregroundStyle(.white)
-                )
+        let icon = loadedAppIcon()
+        Image(nsImage: icon)
+            .resizable()
+            .interpolation(.high)
+            .frame(width: 44, height: 44)
+            .cornerRadius(10)
+    }
+
+    private func loadedAppIcon() -> NSImage {
+        // Prefer the icns shipped in Contents/Resources; fall back to the
+        // Finder icon for the bundle path.
+        if let path = Bundle.main.path(forResource: "AppIcon", ofType: "icns"),
+           let image = NSImage(contentsOfFile: path) {
+            return image
         }
+        return NSWorkspace.shared.icon(forFile: Bundle.main.bundlePath)
     }
 
     // MARK: - Helpers

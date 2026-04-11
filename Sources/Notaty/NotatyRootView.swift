@@ -7,13 +7,23 @@ struct NotatyRootView: View {
         VStack(spacing: 0) {
             TabBar(store: store)
             Divider()
-            if let id = store.selectedID, store.notes.contains(where: { $0.id == id }) {
-                NoteView(noteID: id)
-                    .id(id)
-            } else {
-                Color.clear
+                .opacity(0.5)
+
+            Group {
+                if let id = store.selectedID, store.notes.contains(where: { $0.id == id }) {
+                    NoteView(noteID: id)
+                        .id(id)
+                } else {
+                    Color.clear
+                }
             }
+            .background(Color(NSColor.controlBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
+            .padding(.bottom, 12)
         }
+        .background(Color(NSColor.windowBackgroundColor))
     }
 }
 
@@ -43,9 +53,10 @@ private struct TabBar: View {
 
             HamburgerButton()
                 .frame(width: 24, height: 22)
-                .padding(.trailing, 6)
+                .padding(.trailing, 10)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 6)
+        .padding(.leading, 4)
     }
 }
 
@@ -174,6 +185,18 @@ private struct TabButton: View {
     }
 
     private func confirmDelete() {
+        // Skip the prompt for notes that were never really used: empty body
+        // and either empty or default "Untitled" title. A brand-new tab the
+        // user immediately closes shouldn't require a confirmation.
+        let trimmedTitle = note.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedText = note.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let isUntouched = trimmedText.isEmpty
+            && (trimmedTitle.isEmpty || trimmedTitle == "Untitled")
+        if isUntouched {
+            store.delete(id: note.id)
+            return
+        }
+
         let alert = NSAlert()
         alert.messageText = "Delete this note?"
         alert.informativeText = "\"\(label)\" will be permanently removed."

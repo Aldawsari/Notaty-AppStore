@@ -25,7 +25,7 @@ struct NoteTextEditor: NSViewRepresentable {
         textView.isAutomaticDashSubstitutionEnabled = false
         textView.isAutomaticTextReplacementEnabled = false
         textView.font = .systemFont(ofSize: 14)
-        textView.textContainerInset = NSSize(width: 8, height: 8)
+        textView.textContainerInset = NSSize(width: 12, height: 12)
         textView.drawsBackground = false
         textView.backgroundColor = .clear
         textView.textColor = .labelColor
@@ -39,17 +39,27 @@ struct NoteTextEditor: NSViewRepresentable {
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         // Rebind the coordinator to the current struct's state every update.
         context.coordinator.text = $text
+        let directionModeChanged = context.coordinator.directionMode != directionMode
         context.coordinator.directionMode = directionMode
 
         guard let textView = scrollView.documentView as? NSTextView else { return }
         context.coordinator.textView = textView
 
+        var contentReplaced = false
         if textView.string != text {
             let selection = textView.selectedRanges
             textView.string = text
             textView.selectedRanges = selection
+            contentReplaced = true
         }
-        context.coordinator.applyDirection()
+
+        // Only reapply direction when something actually changed that could
+        // affect it. Without this check every SwiftUI re-render (which fires
+        // on every keystroke via the text binding) re-enumerates the entire
+        // text storage and invalidates the whole layout.
+        if directionModeChanged || contentReplaced {
+            context.coordinator.applyDirection(forceRelayout: true)
+        }
     }
 
     static func resolveDirection(mode: NoteDirection, text: String) -> NSWritingDirection {
@@ -82,21 +92,29 @@ struct NoteTextEditor: NSViewRepresentable {
         var text: Binding<String>
         weak var textView: NSTextView?
         var directionMode: NoteDirection = .auto
+        private var appliedDirection: NSWritingDirection?
 
         init(text: Binding<String>) { self.text = text }
 
         func textDidChange(_ notification: Notification) {
             guard let tv = notification.object as? NSTextView else { return }
             text.wrappedValue = tv.string
-            // Reapply direction on every edit so the first strong character
-            // flips the whole view immediately, independent of SwiftUI updates.
-            applyDirection()
+            // Check whether this edit flipped the detected direction. If not,
+            // skip the expensive relayout pass — the hot path of ordinary
+            // typing now does almost no extra work.
+            applyDirection(forceRelayout: false)
         }
 
-        func applyDirection() {
+        func applyDirection(forceRelayout: Bool) {
             guard let textView else { return }
             let source = textView.string
             let direction = NoteTextEditor.resolveDirection(mode: directionMode, text: source)
+
+            if !forceRelayout && direction == appliedDirection {
+                return
+            }
+            appliedDirection = direction
+
             let alignment: NSTextAlignment = (direction == .rightToLeft) ? .right : .left
 
             textView.baseWritingDirection = direction
@@ -128,9 +146,6 @@ struct NoteTextEditor: NSViewRepresentable {
                     textView.setBaseWritingDirection(direction, range: fullRange)
                 }
 
-                // Invalidate layout for the whole range and re-lay it out so the
-                // caret position (and any already-laid-out glyphs) actually flip
-                // instead of staying where they were.
                 if let layoutManager = textView.layoutManager, let container = textView.textContainer {
                     let fullRange = NSRange(location: 0, length: length)
                     layoutManager.invalidateLayout(forCharacterRange: fullRange, actualCharacterRange: nil)
@@ -138,23 +153,16 @@ struct NoteTextEditor: NSViewRepresentable {
                 }
             }
 
-            // Re-assert the current selection so the insertion point re-lays out
-            // on the correct side under the new direction. Required even for
-            // empty text views — without this the caret keeps its old x origin
-            // until the next keystroke.
             let currentSelection = textView.selectedRange()
             textView.setSelectedRange(currentSelection)
             textView.updateInsertionPointStateAndRestartTimer(true)
 
-            // For empty text views, invalidate the extra-line fragment so the
-            // caret rect is recomputed against the new paragraph direction.
             if let layoutManager = textView.layoutManager, let container = textView.textContainer {
                 layoutManager.ensureLayout(for: container)
                 layoutManager.textContainerChangedGeometry(container)
             }
 
             textView.needsDisplay = true
-            textView.displayIfNeeded()
         }
     }
 }

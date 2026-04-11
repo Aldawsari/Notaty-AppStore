@@ -13,11 +13,16 @@ final class NotesStore: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var isLoading = false
 
+    // O(1) id → index lookup, kept in sync with `notes` on every mutation.
+    private var indexByID: [UUID: Int] = [:]
+
     private init() {
         load()
-        // Persist on every change. Debounce not needed for a local string blob.
+        // Debounce persistence so we don't JSON-encode + UserDefaults-write
+        // on every single keystroke.
         $notes
             .dropFirst()
+            .debounce(for: .milliseconds(400), scheduler: DispatchQueue.main)
             .sink { [weak self] newNotes in
                 guard let self, !self.isLoading else { return }
                 self.save(newNotes)
@@ -29,19 +34,22 @@ final class NotesStore: ObservableObject {
     func addNote() -> Note {
         let note = Note(title: "Untitled", text: "")
         notes.append(note)
+        indexByID[note.id] = notes.count - 1
         selectedID = note.id
         return note
     }
 
     func delete(id: UUID) {
-        notes.removeAll { $0.id == id }
+        guard let index = indexByID[id] else { return }
+        notes.remove(at: index)
+        rebuildIndex()
         if selectedID == id {
             selectedID = notes.first?.id
         }
     }
 
     func select(_ id: UUID) {
-        guard notes.contains(where: { $0.id == id }) else { return }
+        guard indexByID[id] != nil else { return }
         selectedID = id
     }
 
@@ -50,8 +58,13 @@ final class NotesStore: ObservableObject {
     }
 
     func update(id: UUID, transform: (inout Note) -> Void) {
-        guard let index = notes.firstIndex(where: { $0.id == id }) else { return }
+        guard let index = indexByID[id] else { return }
         transform(&notes[index])
+    }
+
+    func note(for id: UUID) -> Note? {
+        guard let index = indexByID[id] else { return nil }
+        return notes[index]
     }
 
     // MARK: - Bindings
@@ -59,7 +72,7 @@ final class NotesStore: ObservableObject {
     func titleBinding(for id: UUID) -> Binding<String> {
         Binding(
             get: { [weak self] in
-                self?.notes.first(where: { $0.id == id })?.title ?? ""
+                self?.note(for: id)?.title ?? ""
             },
             set: { [weak self] newValue in
                 self?.update(id: id) { $0.title = newValue }
@@ -70,7 +83,7 @@ final class NotesStore: ObservableObject {
     func textBinding(for id: UUID) -> Binding<String> {
         Binding(
             get: { [weak self] in
-                self?.notes.first(where: { $0.id == id })?.text ?? ""
+                self?.note(for: id)?.text ?? ""
             },
             set: { [weak self] newValue in
                 self?.update(id: id) { $0.text = newValue }
@@ -89,19 +102,31 @@ final class NotesStore: ObservableObject {
            let decoded = try? JSONDecoder().decode([Note].self, from: data) {
             notes = decoded
         } else if let legacyText = defaults.string(forKey: legacyTextKey) {
-            // Migrate the pre-1.2 single-note storage into the new model.
             notes = [Note(title: "Untitled", text: legacyText)]
             defaults.removeObject(forKey: legacyTextKey)
             save(notes)
         } else {
             notes = []
         }
+        rebuildIndex()
         selectedID = notes.first?.id
     }
 
-    private func save(_ value: [Note]) {
-        guard let data = try? JSONEncoder().encode(value) else { return }
-        UserDefaults.standard.set(data, forKey: storageKey)
+    private func rebuildIndex() {
+        indexByID = Dictionary(uniqueKeysWithValues: notes.enumerated().map { ($1.id, $0) })
     }
-}
 
+    private func save(_ value: [Note]) {
+        // JSON encoding a few KB of notes takes long enough to feel on the
+        // main thread if done every keystroke. Kick it to a background queue
+        // once debounced.
+        DispatchQueue.global(qos: .background).async {
+            guard let data = try? JSONEncoder().encode(value) else { return }
+            UserDefaults.standard.set(data, forKey: Self.storageKeyStatic)
+        }
+    }
+
+    // Static mirror so the background save closure doesn't capture `self`
+    // and isn't affected by the singleton's lifecycle.
+    private static let storageKeyStatic = "notes"
+}
