@@ -202,6 +202,67 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         QuickSwitcherWindowController.show()
     }
 
+    @objc func startOCRCapture() {
+        guard let window = windowController.window else { return }
+        let wasVisible = window.isVisible
+        if wasVisible { window.orderOut(nil) }
+
+        ScreenRegionSelector.begin { [weak self] rect in
+            guard let self else { return }
+            if let rect, let image = ScreenCapture.capture(rect: rect) {
+                OCRService.recognize(image: image) { result in
+                    switch result {
+                    case .success(let text):
+                        self.createNoteFromOCR(text: text)
+                    case .failure(let error):
+                        self.showOCRError(error)
+                    }
+                    self.restoreWindow(wasVisible: wasVisible)
+                }
+            } else {
+                self.restoreWindow(wasVisible: wasVisible)
+            }
+        }
+    }
+
+    private func createNoteFromOCR(text: String) {
+        let note = NotesStore.shared.addNote()
+        NotesStore.shared.update(id: note.id) {
+            $0.title = "Scanned " + Self.ocrTimestamp()
+            $0.text = text
+        }
+    }
+
+    private func showOCRError(_ error: OCRError) {
+        let alert = NSAlert()
+        switch error {
+        case .emptyImage:
+            alert.messageText = "Nothing to scan"
+            alert.informativeText = "The selection was empty."
+        case .noText:
+            alert.messageText = "No text found"
+            alert.informativeText = "Notaty could not recognize any text in that selection."
+        case .vision(let err):
+            alert.messageText = "OCR failed"
+            alert.informativeText = err.localizedDescription
+        }
+        alert.alertStyle = .warning
+        alert.runModal()
+    }
+
+    private func restoreWindow(wasVisible: Bool) {
+        guard wasVisible, let window = windowController.window else { return }
+        NSApp.activate(ignoringOtherApps: true)
+        positionUnderStatusItem(window)
+        window.makeKeyAndOrderFront(nil)
+    }
+
+    private static func ocrTimestamp() -> String {
+        let f = DateFormatter()
+        f.dateFormat = "MMM d, HH:mm"
+        return f.string(from: Date())
+    }
+
     @objc private func newNote() {
         NotesStore.shared.addNote()
         guard let window = windowController.window else { return }
