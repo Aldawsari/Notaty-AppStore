@@ -114,7 +114,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.makeKeyAndOrderFront(nil)
     }
 
-    @objc private func saveAs() {
+    @objc func saveAs() {
         NotatyActions.saveSelectedNoteAs()
     }
 

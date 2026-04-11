@@ -37,44 +37,49 @@ private struct TabBar: View {
             .buttonStyle(.plain)
             .help("New note (⌘T)")
 
-            HamburgerMenu()
+            HamburgerButton()
+                .frame(width: 24, height: 22)
                 .padding(.trailing, 6)
         }
         .padding(.vertical, 4)
     }
 }
 
-private struct HamburgerMenu: View {
-    var body: some View {
-        Menu {
-            Button("Undo") { NotatyActions.sendEditAction(Selector(("undo:"))) }
-                .keyboardShortcut("z", modifiers: .command)
-            Button("Redo") { NotatyActions.sendEditAction(Selector(("redo:"))) }
-                .keyboardShortcut("z", modifiers: [.command, .shift])
-            Divider()
-            Button("Cut") { NotatyActions.sendEditAction(#selector(NSText.cut(_:))) }
-                .keyboardShortcut("x", modifiers: .command)
-            Button("Copy") { NotatyActions.sendEditAction(#selector(NSText.copy(_:))) }
-                .keyboardShortcut("c", modifiers: .command)
-            Button("Paste") { NotatyActions.sendEditAction(#selector(NSText.paste(_:))) }
-                .keyboardShortcut("v", modifiers: .command)
-            Button("Select All") { NotatyActions.sendEditAction(#selector(NSText.selectAll(_:))) }
-                .keyboardShortcut("a", modifiers: .command)
-            Divider()
-            Button("Save As…") { NotatyActions.saveSelectedNoteAs() }
-                .keyboardShortcut("s", modifiers: [.command, .shift])
-            Divider()
-            Button("Quit Notaty") { NSApp.terminate(nil) }
-                .keyboardShortcut("q", modifiers: .command)
-        } label: {
-            Image(systemName: "line.3.horizontal")
-                .font(.system(size: 13, weight: .semibold))
-                .frame(width: 24, height: 22)
+// NSViewRepresentable so the popup can anchor to a real NSView and we can
+// clone NSTextView's own contextual Edit menu (with its dynamic titles and
+// AppKit-provided Find/Spelling/Substitutions/Transformations/Speech submenus).
+private struct HamburgerButton: NSViewRepresentable {
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    func makeNSView(context: Context) -> NSButton {
+        let button = NSButton()
+        button.bezelStyle = .regularSquare
+        button.isBordered = false
+        button.imagePosition = .imageOnly
+        button.image = NSImage(
+            systemSymbolName: "line.3.horizontal",
+            accessibilityDescription: "More options"
+        )
+        button.contentTintColor = .labelColor
+        button.target = context.coordinator
+        button.action = #selector(Coordinator.handleClick(_:))
+        button.focusRingType = .none
+        button.setContentHuggingPriority(.defaultHigh, for: .horizontal)
+        button.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            button.widthAnchor.constraint(equalToConstant: 24),
+            button.heightAnchor.constraint(equalToConstant: 22),
+        ])
+        return button
+    }
+
+    func updateNSView(_ nsView: NSButton, context: Context) {}
+
+    final class Coordinator: NSObject {
+        @objc func handleClick(_ sender: NSButton) {
+            NotatyMenuBuilder.presentHamburgerMenu(anchoredTo: sender)
         }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .fixedSize()
-        .help("More options")
     }
 }
 
