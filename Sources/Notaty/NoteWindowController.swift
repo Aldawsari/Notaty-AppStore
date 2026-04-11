@@ -15,7 +15,10 @@ final class NoteWindowController: NSWindowController {
             backing: .buffered,
             defer: false
         )
-        window.level = .floating
+        // Note: we intentionally do NOT set window.level = .floating —
+        // macOS native window tabbing refuses to merge floating windows into
+        // a tab group, which breaks the multi-tab feature. The window still
+        // comes to the front on every status-item click via NSApp.activate.
         window.isMovableByWindowBackground = true
         window.titlebarAppearsTransparent = true
         window.minSize = NSSize(width: 250, height: 150)

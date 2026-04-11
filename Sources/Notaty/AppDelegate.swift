@@ -117,21 +117,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             makeController(for: note.id)
         }
 
-        // Bring the first one front, then merge the rest as tabs.
         let ordered = NotesStore.shared.notes.compactMap { controllers[$0.id] }
         guard let first = ordered.first, let firstWindow = first.window else { return }
 
-        positionUnderStatusItem(firstWindow)
-        firstWindow.makeKeyAndOrderFront(nil)
-
+        // Merge tabs BEFORE showing. addTabbedWindow only works while both
+        // windows exist but have not yet been finalized in a conflicting layout.
         for controller in ordered.dropFirst() {
-            guard let window = controller.window else { continue }
+            guard let window = controller.window, window !== firstWindow else { continue }
             if window.tabGroup == nil {
                 firstWindow.addTabbedWindow(window, ordered: .above)
-            } else {
-                window.orderFront(nil)
             }
         }
+
+        positionUnderStatusItem(firstWindow)
         firstWindow.makeKeyAndOrderFront(nil)
     }
 
