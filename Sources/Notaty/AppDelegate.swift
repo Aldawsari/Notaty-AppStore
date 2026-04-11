@@ -108,7 +108,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             action: #selector(setDirectionLTR),
             keyEquivalent: String(UnicodeScalar(NSRightArrowFunctionKey)!)
         )
-        ltrItem.keyEquivalentModifierMask = [.control, .shift]
+        ltrItem.keyEquivalentModifierMask = [.control, .command]
         ltrItem.target = self
         writingSubmenu.addItem(ltrItem)
 
@@ -117,7 +117,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             action: #selector(setDirectionRTL),
             keyEquivalent: String(UnicodeScalar(NSLeftArrowFunctionKey)!)
         )
-        rtlItem.keyEquivalentModifierMask = [.control, .shift]
+        rtlItem.keyEquivalentModifierMask = [.control, .command]
         rtlItem.target = self
         writingSubmenu.addItem(rtlItem)
 
