@@ -139,11 +139,22 @@ struct NoteTextEditor: NSViewRepresentable {
             }
 
             // Re-assert the current selection so the insertion point re-lays out
-            // on the correct side under the new direction.
+            // on the correct side under the new direction. Required even for
+            // empty text views — without this the caret keeps its old x origin
+            // until the next keystroke.
             let currentSelection = textView.selectedRange()
             textView.setSelectedRange(currentSelection)
+            textView.updateInsertionPointStateAndRestartTimer(true)
+
+            // For empty text views, invalidate the extra-line fragment so the
+            // caret rect is recomputed against the new paragraph direction.
+            if let layoutManager = textView.layoutManager, let container = textView.textContainer {
+                layoutManager.ensureLayout(for: container)
+                layoutManager.textContainerChangedGeometry(container)
+            }
 
             textView.needsDisplay = true
+            textView.displayIfNeeded()
         }
     }
 }
