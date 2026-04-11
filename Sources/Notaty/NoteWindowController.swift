@@ -4,17 +4,12 @@ import Combine
 
 final class NoteWindowController: NSWindowController {
     private var cancellable: AnyCancellable?
-    private var resizeObserver: NSObjectProtocol?
 
     init() {
-        let defaults = UserDefaults.standard
-        let savedWidth = defaults.double(forKey: "noteWindowWidth")
-        let savedHeight = defaults.double(forKey: "noteWindowHeight")
-        let width = savedWidth >= 250 ? savedWidth : 420
-        let height = savedHeight >= 150 ? savedHeight : 340
+        let initialSize = Settings.shared.defaultWindowSize.size
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: width, height: height),
+            contentRect: NSRect(origin: .zero, size: initialSize),
             styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -40,24 +35,6 @@ final class NoteWindowController: NSWindowController {
         .removeDuplicates()
         .sink { [weak window] title in
             window?.title = title
-        }
-
-        resizeObserver = NotificationCenter.default.addObserver(
-            forName: NSWindow.didResizeNotification,
-            object: window,
-            queue: .main
-        ) { note in
-            guard let w = note.object as? NSWindow else { return }
-            let size = w.frame.size
-            let d = UserDefaults.standard
-            d.set(Double(size.width), forKey: "noteWindowWidth")
-            d.set(Double(size.height), forKey: "noteWindowHeight")
-        }
-    }
-
-    deinit {
-        if let obs = resizeObserver {
-            NotificationCenter.default.removeObserver(obs)
         }
     }
 

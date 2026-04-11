@@ -36,6 +36,15 @@ enum NotatyMenuBuilder {
 
         menu.addItem(NSMenuItem.separator())
 
+        let settingsItem = NSMenuItem(
+            title: "Settings…",
+            action: #selector(AppDelegate.openSettings),
+            keyEquivalent: ","
+        )
+        menu.addItem(settingsItem)
+
+        menu.addItem(NSMenuItem.separator())
+
         let saveItem = NSMenuItem(
             title: "Save As…",
             action: #selector(AppDelegate.saveAs),

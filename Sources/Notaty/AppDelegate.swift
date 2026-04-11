@@ -1,8 +1,10 @@
 import AppKit
+import Combine
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private let windowController = NoteWindowController()
+    private var settingsCancellable: AnyCancellable?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         installMainMenu()
@@ -22,6 +24,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if NotesStore.shared.notes.isEmpty {
             NotesStore.shared.addNote()
         }
+
+        // Live-resize the note window when the default size setting changes.
+        settingsCancellable = Settings.shared.$defaultWindowSize
+            .dropFirst()
+            .sink { [weak self] preset in
+                self?.applyDefaultSize(preset.size, reposition: true)
+            }
     }
 
     // MARK: - Main menu
@@ -110,12 +119,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         NSApp.activate(ignoringOtherApps: true)
+        applyDefaultSize(Settings.shared.defaultWindowSize.size, reposition: false)
         positionUnderStatusItem(window)
         window.makeKeyAndOrderFront(nil)
     }
 
+    private func applyDefaultSize(_ size: NSSize, reposition: Bool) {
+        guard let window = windowController.window else { return }
+        var frame = window.frame
+        let oldSize = frame.size
+        frame.size = size
+        // Keep the titlebar anchored (origin.y is the bottom-left in AppKit).
+        frame.origin.y += oldSize.height - size.height
+        window.setFrame(frame, display: true, animate: false)
+        if reposition && window.isVisible {
+            positionUnderStatusItem(window)
+        }
+    }
+
     @objc func saveAs() {
         NotatyActions.saveSelectedNoteAs()
+    }
+
+    @objc func openSettings() {
+        SettingsWindowController.show()
     }
 
     @objc private func newNote() {
