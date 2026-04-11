@@ -1,8 +1,20 @@
 import SwiftUI
+import AppKit
 
 struct NoteView: View {
     let noteID: UUID
     @ObservedObject private var store = NotesStore.shared
+
+    private var note: Note? {
+        store.notes.first(where: { $0.id == noteID })
+    }
+
+    private var layoutDirection: LayoutDirection {
+        let mode = note?.direction ?? .auto
+        let text = note?.text ?? ""
+        let direction = NoteTextEditor.resolveDirection(mode: mode, text: text)
+        return direction == .rightToLeft ? .rightToLeft : .leftToRight
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -12,13 +24,15 @@ struct NoteView: View {
                 .padding(.horizontal, 12)
                 .padding(.top, 10)
                 .padding(.bottom, 6)
+                .environment(\.layoutDirection, layoutDirection)
 
             Divider()
 
-            TextEditor(text: store.textBinding(for: noteID))
-                .font(.system(size: 14))
-                .padding(8)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            NoteTextEditor(
+                text: store.textBinding(for: noteID),
+                directionMode: note?.direction ?? .auto
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 }

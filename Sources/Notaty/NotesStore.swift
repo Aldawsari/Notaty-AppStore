@@ -45,6 +45,10 @@ final class NotesStore: ObservableObject {
         selectedID = id
     }
 
+    func setDirection(_ direction: NoteDirection, for id: UUID) {
+        update(id: id) { $0.direction = direction }
+    }
+
     func update(id: UUID, transform: (inout Note) -> Void) {
         guard let index = notes.firstIndex(where: { $0.id == id }) else { return }
         transform(&notes[index])

@@ -90,7 +90,52 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         editMenuItem.submenu = editMenu
         mainMenu.addItem(editMenuItem)
 
+        let formatMenuItem = NSMenuItem()
+        let formatMenu = NSMenu(title: "Format")
+        let writingMenuItem = NSMenuItem(title: "Writing Direction", action: nil, keyEquivalent: "")
+        let writingSubmenu = NSMenu(title: "Writing Direction")
+
+        let naturalItem = NSMenuItem(
+            title: "Natural (auto)",
+            action: #selector(setDirectionAuto),
+            keyEquivalent: ""
+        )
+        naturalItem.target = self
+        writingSubmenu.addItem(naturalItem)
+
+        let ltrItem = NSMenuItem(
+            title: "Left to Right",
+            action: #selector(setDirectionLTR),
+            keyEquivalent: String(UnicodeScalar(NSRightArrowFunctionKey)!)
+        )
+        ltrItem.keyEquivalentModifierMask = [.control, .shift]
+        ltrItem.target = self
+        writingSubmenu.addItem(ltrItem)
+
+        let rtlItem = NSMenuItem(
+            title: "Right to Left",
+            action: #selector(setDirectionRTL),
+            keyEquivalent: String(UnicodeScalar(NSLeftArrowFunctionKey)!)
+        )
+        rtlItem.keyEquivalentModifierMask = [.control, .shift]
+        rtlItem.target = self
+        writingSubmenu.addItem(rtlItem)
+
+        writingMenuItem.submenu = writingSubmenu
+        formatMenu.addItem(writingMenuItem)
+        formatMenuItem.submenu = formatMenu
+        mainMenu.addItem(formatMenuItem)
+
         NSApp.mainMenu = mainMenu
+    }
+
+    @objc func setDirectionAuto() { applyDirection(.auto) }
+    @objc func setDirectionLTR() { applyDirection(.ltr) }
+    @objc func setDirectionRTL() { applyDirection(.rtl) }
+
+    private func applyDirection(_ direction: NoteDirection) {
+        guard let id = NotesStore.shared.selectedID else { return }
+        NotesStore.shared.setDirection(direction, for: id)
     }
 
     // MARK: - Status item click
