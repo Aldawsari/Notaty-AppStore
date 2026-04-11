@@ -2,6 +2,7 @@ import AppKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
+    private let windowController = NoteWindowController()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -16,6 +17,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func toggleWindow() {
-        NSLog("Notaty icon clicked")
+        guard let window = windowController.window else { return }
+        if window.isVisible {
+            window.orderOut(nil)
+        } else {
+            NSApp.activate(ignoringOtherApps: true)
+            windowController.showWindow(nil)
+            window.makeKeyAndOrderFront(nil)
+        }
     }
 }
