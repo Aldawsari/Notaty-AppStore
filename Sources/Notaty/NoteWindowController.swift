@@ -1,26 +1,47 @@
 import AppKit
 import SwiftUI
+import Combine
 
 final class NoteWindowController: NSWindowController {
-    convenience init() {
+    let noteID: UUID
+    private var cancellable: AnyCancellable?
+
+    init(noteID: UUID) {
+        self.noteID = noteID
+
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 400, height: 300),
             styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
-        window.title = "Notaty"
         window.level = .floating
         window.isMovableByWindowBackground = true
         window.titlebarAppearsTransparent = true
         window.minSize = NSSize(width: 250, height: 150)
         window.isReleasedWhenClosed = false
-        window.contentViewController = NSHostingController(rootView: NoteView())
+        window.tabbingMode = .preferred
+        window.tabbingIdentifier = "notaty"
+        window.contentViewController = NSHostingController(rootView: NoteView(noteID: noteID))
         window.setFrameAutosaveName("NotatyWindow")
-        // If no saved frame exists yet, center on screen.
-        if window.frameAutosaveName.isEmpty || window.frame.origin == .zero {
+        if window.frame.origin == .zero {
             window.center()
         }
-        self.init(window: window)
+
+        super.init(window: window)
+
+        // Keep window.title (and therefore the native tab label) in sync with
+        // the note's title as the user edits it.
+        cancellable = NotesStore.shared.$notes
+            .map { notes in notes.first(where: { $0.id == noteID })?.title ?? "" }
+            .removeDuplicates()
+            .sink { [weak window] title in
+                window?.title = title.isEmpty ? "Untitled" : title
+            }
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) is not supported")
     }
 }
