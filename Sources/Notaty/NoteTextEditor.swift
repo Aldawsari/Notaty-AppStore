@@ -52,12 +52,20 @@ struct NoteTextEditor: NSViewRepresentable {
 
     private func applyDirection(to textView: NSTextView) {
         let direction = Self.resolveDirection(mode: directionMode, text: text)
-        if textView.baseWritingDirection != direction {
-            textView.baseWritingDirection = direction
 
-            // Also tag every existing paragraph, otherwise already-typed runs
-            // keep their old direction and only new paragraphs flip.
-            guard let storage = textView.textStorage else { return }
+        // Set the text view's base direction AND its default paragraph style so
+        // that even an empty text view types in the right direction.
+        textView.baseWritingDirection = direction
+        let defaultPara = (textView.defaultParagraphStyle?.mutableCopy() as? NSMutableParagraphStyle)
+            ?? NSMutableParagraphStyle()
+        defaultPara.baseWritingDirection = direction
+        textView.defaultParagraphStyle = defaultPara
+
+        // Re-tag every existing paragraph so previously-typed text flips too.
+        // Must run unconditionally — if we skip this when baseWritingDirection
+        // was already set at creation time (e.g. the first tab on launch),
+        // existing paragraph runs keep their old direction forever.
+        if let storage = textView.textStorage, storage.length > 0 {
             let fullRange = NSRange(location: 0, length: storage.length)
             storage.beginEditing()
             storage.enumerateAttribute(.paragraphStyle, in: fullRange, options: []) { value, range, _ in
