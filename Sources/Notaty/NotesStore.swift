@@ -6,6 +6,7 @@ final class NotesStore: ObservableObject {
     static let shared = NotesStore()
 
     @Published var notes: [Note] = []
+    @Published var selectedID: UUID?
 
     private let storageKey = "notes"
     private let legacyTextKey = "noteText"
@@ -24,14 +25,24 @@ final class NotesStore: ObservableObject {
             .store(in: &cancellables)
     }
 
+    @discardableResult
     func addNote() -> Note {
         let note = Note(title: "Untitled", text: "")
         notes.append(note)
+        selectedID = note.id
         return note
     }
 
     func delete(id: UUID) {
         notes.removeAll { $0.id == id }
+        if selectedID == id {
+            selectedID = notes.first?.id
+        }
+    }
+
+    func select(_ id: UUID) {
+        guard notes.contains(where: { $0.id == id }) else { return }
+        selectedID = id
     }
 
     func update(id: UUID, transform: (inout Note) -> Void) {
@@ -81,6 +92,7 @@ final class NotesStore: ObservableObject {
         } else {
             notes = []
         }
+        selectedID = notes.first?.id
     }
 
     private func save(_ value: [Note]) {

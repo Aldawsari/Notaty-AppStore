@@ -3,22 +3,15 @@ import SwiftUI
 import Combine
 
 final class NoteWindowController: NSWindowController {
-    let noteID: UUID
     private var cancellable: AnyCancellable?
     private var resizeObserver: NSObjectProtocol?
 
-    init(noteID: UUID) {
-        self.noteID = noteID
-
-        // Shared size across all tabs (position is managed per-show by AppDelegate).
-        // Can't use setFrameAutosaveName — multiple windows writing to the same
-        // autosave key clobber each other, which among other things breaks tab
-        // merging on the next show.
+    init() {
         let defaults = UserDefaults.standard
         let savedWidth = defaults.double(forKey: "noteWindowWidth")
         let savedHeight = defaults.double(forKey: "noteWindowHeight")
-        let width = savedWidth >= 250 ? savedWidth : 400
-        let height = savedHeight >= 150 ? savedHeight : 300
+        let width = savedWidth >= 250 ? savedWidth : 420
+        let height = savedHeight >= 150 ? savedHeight : 340
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: width, height: height),
@@ -26,28 +19,28 @@ final class NoteWindowController: NSWindowController {
             backing: .buffered,
             defer: false
         )
-        // Note: we intentionally do NOT set window.level = .floating —
-        // macOS native window tabbing refuses to merge floating windows into
-        // a tab group, which breaks the multi-tab feature. The window still
-        // comes to the front on every status-item click via NSApp.activate.
         window.isMovableByWindowBackground = true
         window.titlebarAppearsTransparent = true
-        window.minSize = NSSize(width: 250, height: 150)
+        window.minSize = NSSize(width: 280, height: 180)
         window.isReleasedWhenClosed = false
-        window.tabbingMode = .preferred
-        window.tabbingIdentifier = "notaty"
-        window.contentViewController = NSHostingController(rootView: NoteView(noteID: noteID))
+        window.contentViewController = NSHostingController(rootView: NotatyRootView())
 
         super.init(window: window)
 
-        // Keep window.title (and therefore the native tab label) in sync with
-        // the note's title as the user edits it.
-        cancellable = NotesStore.shared.$notes
-            .map { notes in notes.first(where: { $0.id == noteID })?.title ?? "" }
-            .removeDuplicates()
-            .sink { [weak window] title in
-                window?.title = title.isEmpty ? "Untitled" : title
-            }
+        // Keep the window title in sync with the currently selected note.
+        cancellable = Publishers.CombineLatest(
+            NotesStore.shared.$notes,
+            NotesStore.shared.$selectedID
+        )
+        .map { notes, id -> String in
+            guard let id, let note = notes.first(where: { $0.id == id }) else { return "Notaty" }
+            let trimmed = note.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? "Untitled" : trimmed
+        }
+        .removeDuplicates()
+        .sink { [weak window] title in
+            window?.title = title
+        }
 
         resizeObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didResizeNotification,
