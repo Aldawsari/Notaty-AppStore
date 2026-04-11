@@ -3,7 +3,6 @@ import AppKit
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var controllers: [UUID: NoteWindowController] = [:]
-    private var isTerminating = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         installMainMenu()
@@ -23,11 +22,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if NotesStore.shared.notes.isEmpty {
             _ = NotesStore.shared.addNote()
         }
-    }
-
-    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        isTerminating = true
-        return .terminateNow
     }
 
     // MARK: - Main menu
@@ -165,37 +159,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 // MARK: - NSWindowDelegate
 
 extension AppDelegate: NSWindowDelegate {
-    func windowShouldClose(_ sender: NSWindow) -> Bool {
-        if isTerminating { return true }
-
+    // Closing a window or tab only hides the UI — the underlying note stays
+    // in the store and reappears next time the user opens the menu bar.
+    func windowWillClose(_ notification: Notification) {
         guard
-            let controller = controllers.values.first(where: { $0.window === sender })
-        else {
-            return true
-        }
-
-        let alert = NSAlert()
-        alert.messageText = "Delete this note?"
-        alert.informativeText = "This note will be permanently removed and cannot be recovered."
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: "Delete")
-        alert.addButton(withTitle: "Cancel")
-
-        let response = alert.runModal()
-        guard response == .alertFirstButtonReturn else { return false }
-
-        NotesStore.shared.delete(id: controller.noteID)
-        controllers.removeValue(forKey: controller.noteID)
-
-        // If that was the last note, create a fresh empty one so the app is
-        // never in a zero-note state.
-        if NotesStore.shared.notes.isEmpty {
-            DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
-                let note = NotesStore.shared.addNote()
-                self.makeController(for: note.id).window?.makeKeyAndOrderFront(nil)
-            }
-        }
-        return true
+            let window = notification.object as? NSWindow,
+            let id = controllers.first(where: { $0.value.window === window })?.key
+        else { return }
+        controllers.removeValue(forKey: id)
     }
 }
