@@ -120,16 +120,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let ordered = NotesStore.shared.notes.compactMap { controllers[$0.id] }
         guard let first = ordered.first, let firstWindow = first.window else { return }
 
-        // Merge tabs BEFORE showing. addTabbedWindow only works while both
-        // windows exist but have not yet been finalized in a conflicting layout.
+        // The first window must be visible before addTabbedWindow will merge
+        // anything into its tab group — otherwise the additional tabs silently
+        // end up as detached windows (or not shown at all).
+        positionUnderStatusItem(firstWindow)
+        firstWindow.makeKeyAndOrderFront(nil)
+
         for controller in ordered.dropFirst() {
             guard let window = controller.window, window !== firstWindow else { continue }
             if window.tabGroup == nil {
                 firstWindow.addTabbedWindow(window, ordered: .above)
+            } else {
+                window.orderFront(nil)
             }
         }
-
-        positionUnderStatusItem(firstWindow)
         firstWindow.makeKeyAndOrderFront(nil)
     }
 

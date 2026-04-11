@@ -5,12 +5,23 @@ import Combine
 final class NoteWindowController: NSWindowController {
     let noteID: UUID
     private var cancellable: AnyCancellable?
+    private var resizeObserver: NSObjectProtocol?
 
     init(noteID: UUID) {
         self.noteID = noteID
 
+        // Shared size across all tabs (position is managed per-show by AppDelegate).
+        // Can't use setFrameAutosaveName — multiple windows writing to the same
+        // autosave key clobber each other, which among other things breaks tab
+        // merging on the next show.
+        let defaults = UserDefaults.standard
+        let savedWidth = defaults.double(forKey: "noteWindowWidth")
+        let savedHeight = defaults.double(forKey: "noteWindowHeight")
+        let width = savedWidth >= 250 ? savedWidth : 400
+        let height = savedHeight >= 150 ? savedHeight : 300
+
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 400, height: 300),
+            contentRect: NSRect(x: 0, y: 0, width: width, height: height),
             styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -26,10 +37,6 @@ final class NoteWindowController: NSWindowController {
         window.tabbingMode = .preferred
         window.tabbingIdentifier = "notaty"
         window.contentViewController = NSHostingController(rootView: NoteView(noteID: noteID))
-        window.setFrameAutosaveName("NotatyWindow")
-        if window.frame.origin == .zero {
-            window.center()
-        }
 
         super.init(window: window)
 
@@ -41,6 +48,24 @@ final class NoteWindowController: NSWindowController {
             .sink { [weak window] title in
                 window?.title = title.isEmpty ? "Untitled" : title
             }
+
+        resizeObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didResizeNotification,
+            object: window,
+            queue: .main
+        ) { note in
+            guard let w = note.object as? NSWindow else { return }
+            let size = w.frame.size
+            let d = UserDefaults.standard
+            d.set(Double(size.width), forKey: "noteWindowWidth")
+            d.set(Double(size.height), forKey: "noteWindowHeight")
+        }
+    }
+
+    deinit {
+        if let obs = resizeObserver {
+            NotificationCenter.default.removeObserver(obs)
+        }
     }
 
     @available(*, unavailable)
