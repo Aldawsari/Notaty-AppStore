@@ -120,6 +120,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Bring the first one front, then merge the rest as tabs.
         let ordered = NotesStore.shared.notes.compactMap { controllers[$0.id] }
         guard let first = ordered.first, let firstWindow = first.window else { return }
+
+        positionUnderStatusItem(firstWindow)
         firstWindow.makeKeyAndOrderFront(nil)
 
         for controller in ordered.dropFirst() {
@@ -131,6 +133,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         firstWindow.makeKeyAndOrderFront(nil)
+    }
+
+    // Snap the given window flush below the menu bar, horizontally centered
+    // under the status item button, clamped inside the screen's visible frame.
+    // Called every show so the popover feel is preserved even if the user
+    // previously dragged the window.
+    private func positionUnderStatusItem(_ window: NSWindow) {
+        guard
+            let button = statusItem.button,
+            let buttonWindow = button.window
+        else { return }
+
+        let screen = buttonWindow.screen ?? NSScreen.main ?? NSScreen.screens.first
+        guard let visible = screen?.visibleFrame else { return }
+
+        let buttonRectOnScreen = buttonWindow.convertToScreen(
+            button.convert(button.bounds, to: nil)
+        )
+        let size = window.frame.size
+        let x = min(
+            max(visible.minX, buttonRectOnScreen.midX - size.width / 2),
+            visible.maxX - size.width
+        )
+        let y = visible.maxY - size.height
+        window.setFrameOrigin(NSPoint(x: x, y: y))
     }
 
     @discardableResult
