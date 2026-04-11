@@ -37,6 +37,8 @@ private struct TabBar: View {
             .buttonStyle(.plain)
             .help("New note (⌘T)")
 
+            OverflowMenu(store: store)
+
             HamburgerButton()
                 .frame(width: 24, height: 22)
                 .padding(.trailing, 6)
@@ -80,6 +82,42 @@ private struct HamburgerButton: NSViewRepresentable {
         @objc func handleClick(_ sender: NSButton) {
             NotatyMenuBuilder.presentHamburgerMenu(anchoredTo: sender)
         }
+    }
+}
+
+private struct OverflowMenu: View {
+    @ObservedObject var store: NotesStore
+
+    var body: some View {
+        Menu {
+            Button("Quick Switcher…") { QuickSwitcherWindowController.show() }
+                .keyboardShortcut("k", modifiers: .command)
+            Divider()
+            ForEach(store.notes) { note in
+                Button {
+                    store.select(note.id)
+                } label: {
+                    if store.selectedID == note.id {
+                        Label(displayTitle(note), systemImage: "checkmark")
+                    } else {
+                        Text(displayTitle(note))
+                    }
+                }
+            }
+        } label: {
+            Image(systemName: "chevron.down")
+                .font(.system(size: 11, weight: .semibold))
+                .frame(width: 22, height: 22)
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("All notes")
+    }
+
+    private func displayTitle(_ note: Note) -> String {
+        let t = note.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return t.isEmpty ? "Untitled" : t
     }
 }
 

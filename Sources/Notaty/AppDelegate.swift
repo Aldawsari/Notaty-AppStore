@@ -58,6 +58,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         newNoteItem.target = self
         fileMenu.addItem(newNoteItem)
+        let switcherItem = NSMenuItem(
+            title: "Quick Switcher…",
+            action: #selector(openQuickSwitcher),
+            keyEquivalent: "k"
+        )
+        switcherItem.target = self
+        fileMenu.addItem(switcherItem)
         let saveAsItem = NSMenuItem(
             title: "Save As…",
             action: #selector(saveAs),
@@ -144,6 +151,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func openSettings() {
         SettingsWindowController.show()
+    }
+
+    @objc func openQuickSwitcher() {
+        QuickSwitcherWindowController.show()
     }
 
     @objc private func newNote() {
