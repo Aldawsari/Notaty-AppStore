@@ -12,11 +12,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 accessibilityDescription: "Notaty"
             )
             button.target = self
-            button.action = #selector(toggleWindow)
+            button.action = #selector(handleClick)
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
     }
 
-    @objc private func toggleWindow() {
+    @objc private func handleClick() {
+        guard let event = NSApp.currentEvent else { return }
+        if event.type == .rightMouseUp {
+            showContextMenu()
+        } else {
+            toggleWindow()
+        }
+    }
+
+    private func showContextMenu() {
+        let menu = NSMenu()
+        menu.addItem(
+            withTitle: "Quit Notaty",
+            action: #selector(NSApplication.terminate(_:)),
+            keyEquivalent: "q"
+        )
+        if let button = statusItem.button, let event = NSApp.currentEvent {
+            NSMenu.popUpContextMenu(menu, with: event, for: button)
+        }
+    }
+
+    private func toggleWindow() {
         guard let window = windowController.window else { return }
         if window.isVisible {
             window.orderOut(nil)
