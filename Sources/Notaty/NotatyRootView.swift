@@ -35,10 +35,46 @@ private struct TabBar: View {
                     .frame(width: 24, height: 22)
             }
             .buttonStyle(.plain)
-            .padding(.trailing, 6)
             .help("New note (⌘T)")
+
+            HamburgerMenu()
+                .padding(.trailing, 6)
         }
         .padding(.vertical, 4)
+    }
+}
+
+private struct HamburgerMenu: View {
+    var body: some View {
+        Menu {
+            Button("Undo") { NotatyActions.sendEditAction(Selector(("undo:"))) }
+                .keyboardShortcut("z", modifiers: .command)
+            Button("Redo") { NotatyActions.sendEditAction(Selector(("redo:"))) }
+                .keyboardShortcut("z", modifiers: [.command, .shift])
+            Divider()
+            Button("Cut") { NotatyActions.sendEditAction(#selector(NSText.cut(_:))) }
+                .keyboardShortcut("x", modifiers: .command)
+            Button("Copy") { NotatyActions.sendEditAction(#selector(NSText.copy(_:))) }
+                .keyboardShortcut("c", modifiers: .command)
+            Button("Paste") { NotatyActions.sendEditAction(#selector(NSText.paste(_:))) }
+                .keyboardShortcut("v", modifiers: .command)
+            Button("Select All") { NotatyActions.sendEditAction(#selector(NSText.selectAll(_:))) }
+                .keyboardShortcut("a", modifiers: .command)
+            Divider()
+            Button("Save As…") { NotatyActions.saveSelectedNoteAs() }
+                .keyboardShortcut("s", modifiers: [.command, .shift])
+            Divider()
+            Button("Quit Notaty") { NSApp.terminate(nil) }
+                .keyboardShortcut("q", modifiers: .command)
+        } label: {
+            Image(systemName: "line.3.horizontal")
+                .font(.system(size: 13, weight: .semibold))
+                .frame(width: 24, height: 22)
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("More options")
     }
 }
 

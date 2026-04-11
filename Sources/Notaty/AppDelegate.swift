@@ -48,6 +48,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         newNoteItem.target = self
         fileMenu.addItem(newNoteItem)
+        let saveAsItem = NSMenuItem(
+            title: "Save As…",
+            action: #selector(saveAs),
+            keyEquivalent: "s"
+        )
+        saveAsItem.keyEquivalentModifierMask = [.command, .shift]
+        saveAsItem.target = self
+        fileMenu.addItem(saveAsItem)
         fileMenuItem.submenu = fileMenu
         mainMenu.addItem(fileMenuItem)
 
@@ -104,6 +112,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
         positionUnderStatusItem(window)
         window.makeKeyAndOrderFront(nil)
+    }
+
+    @objc private func saveAs() {
+        NotatyActions.saveSelectedNoteAs()
     }
 
     @objc private func newNote() {
