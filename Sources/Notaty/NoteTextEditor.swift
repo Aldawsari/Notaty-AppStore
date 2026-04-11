@@ -31,51 +31,25 @@ struct NoteTextEditor: NSViewRepresentable {
         textView.textColor = .labelColor
         textView.usesFindBar = true
 
+        context.coordinator.textView = textView
+        context.coordinator.directionMode = directionMode
         return scrollView
     }
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
-        // The Coordinator is created once by SwiftUI and reused across updates.
-        // Re-point it at the CURRENT binding every update so that after a tab
-        // switch the delegate writes to the newly-selected note, not the one
-        // whose binding was captured when makeCoordinator first ran.
+        // Rebind the coordinator to the current struct's state every update.
         context.coordinator.text = $text
+        context.coordinator.directionMode = directionMode
 
         guard let textView = scrollView.documentView as? NSTextView else { return }
+        context.coordinator.textView = textView
+
         if textView.string != text {
             let selection = textView.selectedRanges
             textView.string = text
             textView.selectedRanges = selection
         }
-        applyDirection(to: textView)
-    }
-
-    private func applyDirection(to textView: NSTextView) {
-        let direction = Self.resolveDirection(mode: directionMode, text: text)
-
-        // Set the text view's base direction AND its default paragraph style so
-        // that even an empty text view types in the right direction.
-        textView.baseWritingDirection = direction
-        let defaultPara = (textView.defaultParagraphStyle?.mutableCopy() as? NSMutableParagraphStyle)
-            ?? NSMutableParagraphStyle()
-        defaultPara.baseWritingDirection = direction
-        textView.defaultParagraphStyle = defaultPara
-
-        // Re-tag every existing paragraph so previously-typed text flips too.
-        // Must run unconditionally — if we skip this when baseWritingDirection
-        // was already set at creation time (e.g. the first tab on launch),
-        // existing paragraph runs keep their old direction forever.
-        if let storage = textView.textStorage, storage.length > 0 {
-            let fullRange = NSRange(location: 0, length: storage.length)
-            storage.beginEditing()
-            storage.enumerateAttribute(.paragraphStyle, in: fullRange, options: []) { value, range, _ in
-                let base = (value as? NSParagraphStyle) ?? NSParagraphStyle.default
-                let mutable = (base.mutableCopy() as? NSMutableParagraphStyle) ?? NSMutableParagraphStyle()
-                mutable.baseWritingDirection = direction
-                storage.addAttribute(.paragraphStyle, value: mutable, range: range)
-            }
-            storage.endEditing()
-        }
+        context.coordinator.applyDirection()
     }
 
     static func resolveDirection(mode: NoteDirection, text: String) -> NSWritingDirection {
@@ -86,15 +60,10 @@ struct NoteTextEditor: NSViewRepresentable {
         }
     }
 
-    // First-strong directional-character heuristic. Returns .leftToRight if
-    // no strong character is present so a fresh note starts with the system
-    // default rather than arbitrary.
+    // First-strong directional-character heuristic.
     static func detect(_ text: String) -> NSWritingDirection {
         for scalar in text.unicodeScalars {
             let v = scalar.value
-            // Arabic blocks (main, supplement, extended-A, presentation forms A/B)
-            // + Hebrew + Thaana + NKo + Samaritan — everything in 0x0590–0x08FF
-            // is RTL in Unicode's bidi categories.
             if (0x0590...0x08FF).contains(v)
                 || (0xFB1D...0xFDFF).contains(v)
                 || (0xFE70...0xFEFF).contains(v) {
@@ -111,11 +80,46 @@ struct NoteTextEditor: NSViewRepresentable {
 
     final class Coordinator: NSObject, NSTextViewDelegate {
         var text: Binding<String>
+        weak var textView: NSTextView?
+        var directionMode: NoteDirection = .auto
+
         init(text: Binding<String>) { self.text = text }
 
         func textDidChange(_ notification: Notification) {
-            guard let textView = notification.object as? NSTextView else { return }
-            text.wrappedValue = textView.string
+            guard let tv = notification.object as? NSTextView else { return }
+            text.wrappedValue = tv.string
+            // Reapply direction on every edit so the first strong character
+            // flips the whole view immediately, independent of SwiftUI updates.
+            applyDirection()
+        }
+
+        func applyDirection() {
+            guard let textView else { return }
+            let source = textView.string
+            let direction = NoteTextEditor.resolveDirection(mode: directionMode, text: source)
+
+            textView.baseWritingDirection = direction
+
+            let para = (textView.defaultParagraphStyle?.mutableCopy() as? NSMutableParagraphStyle)
+                ?? NSMutableParagraphStyle()
+            para.baseWritingDirection = direction
+            textView.defaultParagraphStyle = para
+
+            var attrs = textView.typingAttributes
+            attrs[.paragraphStyle] = para
+            textView.typingAttributes = attrs
+
+            if let storage = textView.textStorage, storage.length > 0 {
+                let fullRange = NSRange(location: 0, length: storage.length)
+                storage.beginEditing()
+                storage.enumerateAttribute(.paragraphStyle, in: fullRange, options: []) { value, range, _ in
+                    let base = (value as? NSParagraphStyle) ?? NSParagraphStyle.default
+                    let mutable = (base.mutableCopy() as? NSMutableParagraphStyle) ?? NSMutableParagraphStyle()
+                    mutable.baseWritingDirection = direction
+                    storage.addAttribute(.paragraphStyle, value: mutable, range: range)
+                }
+                storage.endEditing()
+            }
         }
     }
 }
