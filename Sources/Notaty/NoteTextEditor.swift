@@ -97,29 +97,39 @@ struct NoteTextEditor: NSViewRepresentable {
             guard let textView else { return }
             let source = textView.string
             let direction = NoteTextEditor.resolveDirection(mode: directionMode, text: source)
+            let alignment: NSTextAlignment = (direction == .rightToLeft) ? .right : .left
 
             textView.baseWritingDirection = direction
+            textView.alignment = alignment
 
             let para = (textView.defaultParagraphStyle?.mutableCopy() as? NSMutableParagraphStyle)
                 ?? NSMutableParagraphStyle()
             para.baseWritingDirection = direction
+            para.alignment = alignment
             textView.defaultParagraphStyle = para
 
             var attrs = textView.typingAttributes
             attrs[.paragraphStyle] = para
             textView.typingAttributes = attrs
 
-            if let storage = textView.textStorage, storage.length > 0 {
-                let fullRange = NSRange(location: 0, length: storage.length)
-                storage.beginEditing()
-                storage.enumerateAttribute(.paragraphStyle, in: fullRange, options: []) { value, range, _ in
-                    let base = (value as? NSParagraphStyle) ?? NSParagraphStyle.default
-                    let mutable = (base.mutableCopy() as? NSMutableParagraphStyle) ?? NSMutableParagraphStyle()
-                    mutable.baseWritingDirection = direction
-                    storage.addAttribute(.paragraphStyle, value: mutable, range: range)
+            if let storage = textView.textStorage {
+                let length = storage.length
+                if length > 0 {
+                    let fullRange = NSRange(location: 0, length: length)
+                    storage.beginEditing()
+                    storage.enumerateAttribute(.paragraphStyle, in: fullRange, options: []) { value, range, _ in
+                        let base = (value as? NSParagraphStyle) ?? NSParagraphStyle.default
+                        let mutable = (base.mutableCopy() as? NSMutableParagraphStyle) ?? NSMutableParagraphStyle()
+                        mutable.baseWritingDirection = direction
+                        mutable.alignment = alignment
+                        storage.addAttribute(.paragraphStyle, value: mutable, range: range)
+                    }
+                    storage.endEditing()
+                    textView.setBaseWritingDirection(direction, range: fullRange)
                 }
-                storage.endEditing()
             }
+
+            textView.needsDisplay = true
         }
     }
 }
