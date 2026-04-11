@@ -21,14 +21,9 @@ private struct TabBar: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 4) {
-                    ForEach(store.notes) { note in
-                        TabButton(note: note, store: store)
-                    }
-                }
-                .padding(.horizontal, 6)
-            }
+            TabStrip(store: store)
+                .frame(maxWidth: .infinity)
+
             Button(action: { store.addNote() }) {
                 Image(systemName: "plus")
                     .font(.system(size: 12, weight: .semibold))
@@ -42,6 +37,54 @@ private struct TabBar: View {
                 .padding(.trailing, 6)
         }
         .padding(.vertical, 4)
+    }
+}
+
+// Safari-style tab layout: tabs share the available width equally, each
+// shrinking from a max of ~180px down to a min of ~72px. Past that minimum,
+// the strip scrolls horizontally and the active tab auto-scrolls into view.
+private struct TabStrip: View {
+    @ObservedObject var store: NotesStore
+    @State private var stripWidth: CGFloat = 0
+
+    private let minTabWidth: CGFloat = 72
+    private let maxTabWidth: CGFloat = 180
+    private let spacing: CGFloat = 4
+    private let outerPadding: CGFloat = 6
+
+    private var computedTabWidth: CGFloat {
+        let count = max(1, store.notes.count)
+        let usable = max(0, stripWidth - outerPadding * 2 - spacing * CGFloat(count - 1))
+        let raw = usable / CGFloat(count)
+        return min(max(raw, minTabWidth), maxTabWidth)
+    }
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: spacing) {
+                    ForEach(store.notes) { note in
+                        TabButton(note: note, store: store)
+                            .frame(width: computedTabWidth)
+                            .id(note.id)
+                    }
+                }
+                .padding(.horizontal, outerPadding)
+            }
+            .onChange(of: store.selectedID) { id in
+                guard let id else { return }
+                withAnimation(.easeOut(duration: 0.18)) {
+                    proxy.scrollTo(id, anchor: .center)
+                }
+            }
+        }
+        .background(
+            GeometryReader { geo in
+                Color.clear
+                    .onAppear { stripWidth = geo.size.width }
+                    .onChange(of: geo.size.width) { w in stripWidth = w }
+            }
+        )
     }
 }
 
@@ -112,7 +155,7 @@ private struct TabButton: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 4)
-        .frame(minWidth: 60, maxWidth: 160)
+        .frame(maxWidth: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 6)
                 .fill(isActive ? Color.primary.opacity(0.12) : Color.primary.opacity(0.04))
