@@ -127,7 +127,21 @@ struct NoteTextEditor: NSViewRepresentable {
                     storage.endEditing()
                     textView.setBaseWritingDirection(direction, range: fullRange)
                 }
+
+                // Invalidate layout for the whole range and re-lay it out so the
+                // caret position (and any already-laid-out glyphs) actually flip
+                // instead of staying where they were.
+                if let layoutManager = textView.layoutManager, let container = textView.textContainer {
+                    let fullRange = NSRange(location: 0, length: length)
+                    layoutManager.invalidateLayout(forCharacterRange: fullRange, actualCharacterRange: nil)
+                    layoutManager.ensureLayout(for: container)
+                }
             }
+
+            // Re-assert the current selection so the insertion point re-lays out
+            // on the correct side under the new direction.
+            let currentSelection = textView.selectedRange()
+            textView.setSelectedRange(currentSelection)
 
             textView.needsDisplay = true
         }
