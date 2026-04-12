@@ -66,6 +66,8 @@ private struct TabBar: View {
 private struct TabStrip: View {
     @ObservedObject var store: NotesStore
     @State private var stripWidth: CGFloat = 0
+    @State private var draggingID: UUID?
+    @State private var dragOffset: CGFloat = 0
 
     private let minTabWidth: CGFloat = 72
     private let maxTabWidth: CGFloat = 180
@@ -79,17 +81,47 @@ private struct TabStrip: View {
         return min(max(raw, minTabWidth), maxTabWidth)
     }
 
+    private var cellWidth: CGFloat { computedTabWidth + spacing }
+
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: spacing) {
                     ForEach(store.notes) { note in
-                        TabButton(note: note, store: store)
+                        let isDragging = draggingID == note.id
+                        TabButton(note: note, store: store, isDragging: isDragging)
                             .frame(width: computedTabWidth)
                             .id(note.id)
+                            .offset(x: isDragging ? dragOffset : 0)
+                            .zIndex(isDragging ? 1 : 0)
+                            .scaleEffect(isDragging ? 1.04 : 1.0)
+                            .shadow(
+                                color: isDragging ? Color.black.opacity(0.2) : .clear,
+                                radius: isDragging ? 4 : 0,
+                                y: isDragging ? 2 : 0
+                            )
+                            .gesture(
+                                DragGesture(minimumDistance: 5)
+                                    .onChanged { value in
+                                        if draggingID == nil {
+                                            draggingID = note.id
+                                        }
+                                        dragOffset = value.translation.width
+                                        checkSwap(for: note.id)
+                                    }
+                                    .onEnded { _ in
+                                        withAnimation(.easeOut(duration: 0.15)) {
+                                            dragOffset = 0
+                                        }
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                                            draggingID = nil
+                                        }
+                                    }
+                            )
                     }
                 }
                 .padding(.horizontal, outerPadding)
+                .animation(.easeInOut(duration: 0.2), value: store.notes.map(\.id))
             }
             .onChange(of: store.selectedID) { id in
                 guard let id else { return }
@@ -105,6 +137,26 @@ private struct TabStrip: View {
                     .onChange(of: geo.size.width) { w in stripWidth = w }
             }
         )
+    }
+
+    // When the dragged tab's center crosses into a neighbor's territory,
+    // swap them in the array. The ForEach animation handles the visual slide.
+    private func checkSwap(for id: UUID) {
+        guard let currentIndex = store.notes.firstIndex(where: { $0.id == id }) else { return }
+        let threshold = cellWidth * 0.5
+        if dragOffset > threshold, currentIndex < store.notes.count - 1 {
+            let neighbor = store.notes[currentIndex + 1]
+            withAnimation(.easeInOut(duration: 0.2)) {
+                store.moveNote(fromID: id, toID: neighbor.id)
+            }
+            dragOffset -= cellWidth
+        } else if dragOffset < -threshold, currentIndex > 0 {
+            let neighbor = store.notes[currentIndex - 1]
+            withAnimation(.easeInOut(duration: 0.2)) {
+                store.moveNote(fromID: id, toID: neighbor.id)
+            }
+            dragOffset += cellWidth
+        }
     }
 }
 
@@ -149,6 +201,7 @@ private struct HamburgerButton: NSViewRepresentable {
 private struct TabButton: View {
     let note: Note
     @ObservedObject var store: NotesStore
+    var isDragging: Bool = false
 
     private var isActive: Bool { store.selectedID == note.id }
     private var label: String {
@@ -180,6 +233,7 @@ private struct TabButton: View {
             RoundedRectangle(cornerRadius: 6)
                 .fill(isActive ? Color.primary.opacity(0.12) : Color.primary.opacity(0.04))
         )
+        .opacity(isDragging ? 0.4 : 1.0)
         .contentShape(Rectangle())
         .onTapGesture { store.select(note.id) }
     }
