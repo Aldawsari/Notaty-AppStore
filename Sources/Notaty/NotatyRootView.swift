@@ -66,7 +66,7 @@ private struct TabBar: View {
 private struct TabStrip: View {
     @ObservedObject var store: NotesStore
     @State private var stripWidth: CGFloat = 0
-    @State private var dragOverID: UUID?
+    @State private var draggingID: UUID?
 
     private let minTabWidth: CGFloat = 72
     private let maxTabWidth: CGFloat = 180
@@ -85,20 +85,22 @@ private struct TabStrip: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: spacing) {
                     ForEach(store.notes) { note in
-                        TabButton(note: note, store: store, isDragTarget: dragOverID == note.id)
-                            .frame(width: computedTabWidth)
-                            .id(note.id)
-                            .onDrag {
-                                NSItemProvider(object: note.id.uuidString as NSString)
-                            }
-                            .onDrop(of: [.plainText], isTargeted: Binding(
-                                get: { dragOverID == note.id },
-                                set: { targeted in
-                                    dragOverID = targeted ? note.id : nil
-                                }
-                            )) { providers in
-                                handleDrop(providers: providers, targetID: note.id)
-                            }
+                        TabButton(
+                            note: note,
+                            store: store,
+                            isDragging: draggingID == note.id
+                        )
+                        .frame(width: computedTabWidth)
+                        .id(note.id)
+                        .onDrag {
+                            draggingID = note.id
+                            return NSItemProvider(object: note.id.uuidString as NSString)
+                        }
+                        .onDrop(of: [.plainText], delegate: TabDropDelegate(
+                            targetID: note.id,
+                            draggingID: $draggingID,
+                            store: store
+                        ))
                     }
                 }
                 .padding(.horizontal, outerPadding)
@@ -119,19 +121,31 @@ private struct TabStrip: View {
             }
         )
     }
+}
 
-    private func handleDrop(providers: [NSItemProvider], targetID: UUID) -> Bool {
-        guard let provider = providers.first else { return false }
-        provider.loadObject(ofClass: NSString.self) { item, _ in
-            guard let uuidString = item as? String,
-                  let draggedID = UUID(uuidString: uuidString)
-            else { return }
-            DispatchQueue.main.async {
-                store.moveNote(fromID: draggedID, toID: targetID)
-            }
+// Live-reorder as the drag enters each tab, instead of waiting for drop.
+private struct TabDropDelegate: DropDelegate {
+    let targetID: UUID
+    @Binding var draggingID: UUID?
+    let store: NotesStore
+
+    func dropEntered(info: DropInfo) {
+        guard let from = draggingID, from != targetID else { return }
+        withAnimation(.easeInOut(duration: 0.2)) {
+            store.moveNote(fromID: from, toID: targetID)
         }
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        draggingID = nil
         return true
     }
+
+    func dropExited(info: DropInfo) {}
 }
 
 // NSViewRepresentable so the popup can anchor to a real NSView and we can
@@ -175,7 +189,7 @@ private struct HamburgerButton: NSViewRepresentable {
 private struct TabButton: View {
     let note: Note
     @ObservedObject var store: NotesStore
-    var isDragTarget: Bool = false
+    var isDragging: Bool = false
 
     private var isActive: Bool { store.selectedID == note.id }
     private var label: String {
@@ -207,10 +221,7 @@ private struct TabButton: View {
             RoundedRectangle(cornerRadius: 6)
                 .fill(isActive ? Color.primary.opacity(0.12) : Color.primary.opacity(0.04))
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(Color.accentColor, lineWidth: isDragTarget ? 2 : 0)
-        )
+        .opacity(isDragging ? 0.4 : 1.0)
         .contentShape(Rectangle())
         .onTapGesture { store.select(note.id) }
     }
