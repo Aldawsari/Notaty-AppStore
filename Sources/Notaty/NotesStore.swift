@@ -13,13 +13,21 @@ final class NotesStore: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var isLoading = false
 
-    // O(1) id → index lookup, kept in sync with `notes` on every mutation.
     private var indexByID: [UUID: Int] = [:]
 
+    // File-based backup in ~/Library/Application Support/Notaty/notes.json
+    // so notes survive bundle-ID changes, plist deletions, and reinstalls.
+    private static let appSupportDir: URL = {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        return base.appendingPathComponent("Notaty", isDirectory: true)
+    }()
+    private static let backupURL: URL = {
+        appSupportDir.appendingPathComponent("notes.json")
+    }()
+
     private init() {
+        ensureAppSupportDir()
         load()
-        // Debounce persistence so we don't JSON-encode + UserDefaults-write
-        // on every single keystroke.
         $notes
             .dropFirst()
             .debounce(for: .milliseconds(400), scheduler: DispatchQueue.main)
@@ -98,18 +106,45 @@ final class NotesStore: ObservableObject {
         defer { isLoading = false }
 
         let defaults = UserDefaults.standard
+
+        // 1. Try UserDefaults (primary, backward-compatible).
         if let data = defaults.data(forKey: storageKey),
-           let decoded = try? JSONDecoder().decode([Note].self, from: data) {
+           let decoded = try? JSONDecoder().decode([Note].self, from: data),
+           !decoded.isEmpty {
             notes = decoded
-        } else if let legacyText = defaults.string(forKey: legacyTextKey) {
+            // Sync the file backup in case it's stale.
+            saveToFile(decoded)
+            rebuildIndex()
+            selectedID = notes.first?.id
+            return
+        }
+
+        // 2. Try file backup (survives bundle-ID changes and plist resets).
+        if let decoded = loadFromFile(), !decoded.isEmpty {
+            notes = decoded
+            // Re-populate UserDefaults from the backup.
+            if let data = try? JSONEncoder().encode(decoded) {
+                defaults.set(data, forKey: storageKey)
+            }
+            rebuildIndex()
+            selectedID = notes.first?.id
+            return
+        }
+
+        // 3. Try legacy single-note key (pre-1.2 migration).
+        if let legacyText = defaults.string(forKey: legacyTextKey) {
             notes = [Note(title: "Untitled", text: legacyText)]
             defaults.removeObject(forKey: legacyTextKey)
             save(notes)
-        } else {
-            notes = []
+            rebuildIndex()
+            selectedID = notes.first?.id
+            return
         }
+
+        // 4. Fresh start.
+        notes = []
         rebuildIndex()
-        selectedID = notes.first?.id
+        selectedID = nil
     }
 
     private func rebuildIndex() {
@@ -117,16 +152,30 @@ final class NotesStore: ObservableObject {
     }
 
     private func save(_ value: [Note]) {
-        // JSON encoding a few KB of notes takes long enough to feel on the
-        // main thread if done every keystroke. Kick it to a background queue
-        // once debounced.
         DispatchQueue.global(qos: .background).async {
             guard let data = try? JSONEncoder().encode(value) else { return }
-            UserDefaults.standard.set(data, forKey: Self.storageKeyStatic)
+            // Write to both UserDefaults and the file backup.
+            UserDefaults.standard.set(data, forKey: "notes")
+            try? data.write(to: Self.backupURL, options: .atomic)
         }
     }
 
-    // Static mirror so the background save closure doesn't capture `self`
-    // and isn't affected by the singleton's lifecycle.
-    private static let storageKeyStatic = "notes"
+    private func saveToFile(_ value: [Note]) {
+        DispatchQueue.global(qos: .background).async {
+            guard let data = try? JSONEncoder().encode(value) else { return }
+            try? data.write(to: Self.backupURL, options: .atomic)
+        }
+    }
+
+    private func loadFromFile() -> [Note]? {
+        guard let data = try? Data(contentsOf: Self.backupURL) else { return nil }
+        return try? JSONDecoder().decode([Note].self, from: data)
+    }
+
+    private func ensureAppSupportDir() {
+        try? FileManager.default.createDirectory(
+            at: Self.appSupportDir,
+            withIntermediateDirectories: true
+        )
+    }
 }
