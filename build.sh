@@ -56,6 +56,10 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <true/>
     <key>NSScreenCaptureUsageDescription</key>
     <string>Notaty needs Screen Recording permission to capture regions of the screen for OCR.</string>
+    <key>SUFeedURL</key>
+    <string>https://icamel.app/product/notaty/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>GfdQiR/U7McuACYQ+MR5IHWGY13H7BX+8Fby4Ccrbtg=</string>
 </dict>
 </plist>
 PLIST

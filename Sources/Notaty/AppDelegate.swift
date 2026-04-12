@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import Sparkle
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
@@ -7,6 +8,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsCancellable: AnyCancellable?
     private var outsideClickMonitor: Any?
     private var localEscMonitor: Any?
+    private let updaterController = SPUStandardUpdaterController(
+        startingUpdater: true,
+        updaterDelegate: nil,
+        userDriverDelegate: nil
+    )
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.appearance = Settings.shared.theme.nsAppearance
@@ -248,7 +254,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func openSettings() {
-        SettingsWindowController.show()
+        SettingsWindowController.show(updater: updaterController.updater)
     }
 
     @objc func openQuickSwitcher() {

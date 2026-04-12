@@ -1,23 +1,24 @@
 import AppKit
 import SwiftUI
+import Sparkle
 
 final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private static var shared: SettingsWindowController?
 
-    static func show() {
+    static func show(updater: SPUUpdater? = nil) {
         if let existing = shared {
             existing.window?.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             return
         }
-        let controller = SettingsWindowController()
+        let controller = SettingsWindowController(updater: updater)
         shared = controller
         controller.window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    convenience init() {
-        let hosting = NSHostingController(rootView: SettingsView())
+    convenience init(updater: SPUUpdater? = nil) {
+        let hosting = NSHostingController(rootView: SettingsView(updater: updater))
         let window = NSWindow(contentViewController: hosting)
         window.title = "Notaty Settings"
         window.styleMask = [.titled, .closable]
