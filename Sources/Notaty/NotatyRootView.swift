@@ -67,6 +67,7 @@ private struct TabStrip: View {
     @ObservedObject var store: NotesStore
     @State private var stripWidth: CGFloat = 0
     @State private var draggingID: UUID?
+    @State private var dragOffset: CGFloat = 0
 
     private let minTabWidth: CGFloat = 72
     private let maxTabWidth: CGFloat = 180
@@ -80,27 +81,43 @@ private struct TabStrip: View {
         return min(max(raw, minTabWidth), maxTabWidth)
     }
 
+    private var cellWidth: CGFloat { computedTabWidth + spacing }
+
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: spacing) {
                     ForEach(store.notes) { note in
-                        TabButton(
-                            note: note,
-                            store: store,
-                            isDragging: draggingID == note.id
-                        )
-                        .frame(width: computedTabWidth)
-                        .id(note.id)
-                        .onDrag {
-                            draggingID = note.id
-                            return NSItemProvider(object: note.id.uuidString as NSString)
-                        }
-                        .onDrop(of: [.plainText], delegate: TabDropDelegate(
-                            targetID: note.id,
-                            draggingID: $draggingID,
-                            store: store
-                        ))
+                        let isDragging = draggingID == note.id
+                        TabButton(note: note, store: store, isDragging: isDragging)
+                            .frame(width: computedTabWidth)
+                            .id(note.id)
+                            .offset(x: isDragging ? dragOffset : 0)
+                            .zIndex(isDragging ? 1 : 0)
+                            .scaleEffect(isDragging ? 1.04 : 1.0)
+                            .shadow(
+                                color: isDragging ? Color.black.opacity(0.2) : .clear,
+                                radius: isDragging ? 4 : 0,
+                                y: isDragging ? 2 : 0
+                            )
+                            .gesture(
+                                DragGesture(minimumDistance: 5)
+                                    .onChanged { value in
+                                        if draggingID == nil {
+                                            draggingID = note.id
+                                        }
+                                        dragOffset = value.translation.width
+                                        checkSwap(for: note.id)
+                                    }
+                                    .onEnded { _ in
+                                        withAnimation(.easeOut(duration: 0.15)) {
+                                            dragOffset = 0
+                                        }
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                                            draggingID = nil
+                                        }
+                                    }
+                            )
                     }
                 }
                 .padding(.horizontal, outerPadding)
@@ -121,31 +138,26 @@ private struct TabStrip: View {
             }
         )
     }
-}
 
-// Live-reorder as the drag enters each tab, instead of waiting for drop.
-private struct TabDropDelegate: DropDelegate {
-    let targetID: UUID
-    @Binding var draggingID: UUID?
-    let store: NotesStore
-
-    func dropEntered(info: DropInfo) {
-        guard let from = draggingID, from != targetID else { return }
-        withAnimation(.easeInOut(duration: 0.2)) {
-            store.moveNote(fromID: from, toID: targetID)
+    // When the dragged tab's center crosses into a neighbor's territory,
+    // swap them in the array. The ForEach animation handles the visual slide.
+    private func checkSwap(for id: UUID) {
+        guard let currentIndex = store.notes.firstIndex(where: { $0.id == id }) else { return }
+        let threshold = cellWidth * 0.5
+        if dragOffset > threshold, currentIndex < store.notes.count - 1 {
+            let neighbor = store.notes[currentIndex + 1]
+            withAnimation(.easeInOut(duration: 0.2)) {
+                store.moveNote(fromID: id, toID: neighbor.id)
+            }
+            dragOffset -= cellWidth
+        } else if dragOffset < -threshold, currentIndex > 0 {
+            let neighbor = store.notes[currentIndex - 1]
+            withAnimation(.easeInOut(duration: 0.2)) {
+                store.moveNote(fromID: id, toID: neighbor.id)
+            }
+            dragOffset += cellWidth
         }
     }
-
-    func dropUpdated(info: DropInfo) -> DropProposal? {
-        DropProposal(operation: .move)
-    }
-
-    func performDrop(info: DropInfo) -> Bool {
-        draggingID = nil
-        return true
-    }
-
-    func dropExited(info: DropInfo) {}
 }
 
 // NSViewRepresentable so the popup can anchor to a real NSView and we can
