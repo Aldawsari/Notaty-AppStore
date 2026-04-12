@@ -66,6 +66,7 @@ private struct TabBar: View {
 private struct TabStrip: View {
     @ObservedObject var store: NotesStore
     @State private var stripWidth: CGFloat = 0
+    @State private var dragOverID: UUID?
 
     private let minTabWidth: CGFloat = 72
     private let maxTabWidth: CGFloat = 180
@@ -84,12 +85,24 @@ private struct TabStrip: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: spacing) {
                     ForEach(store.notes) { note in
-                        TabButton(note: note, store: store)
+                        TabButton(note: note, store: store, isDragTarget: dragOverID == note.id)
                             .frame(width: computedTabWidth)
                             .id(note.id)
+                            .onDrag {
+                                NSItemProvider(object: note.id.uuidString as NSString)
+                            }
+                            .onDrop(of: [.plainText], isTargeted: Binding(
+                                get: { dragOverID == note.id },
+                                set: { targeted in
+                                    dragOverID = targeted ? note.id : nil
+                                }
+                            )) { providers in
+                                handleDrop(providers: providers, targetID: note.id)
+                            }
                     }
                 }
                 .padding(.horizontal, outerPadding)
+                .animation(.easeInOut(duration: 0.2), value: store.notes.map(\.id))
             }
             .onChange(of: store.selectedID) { id in
                 guard let id else { return }
@@ -105,6 +118,19 @@ private struct TabStrip: View {
                     .onChange(of: geo.size.width) { w in stripWidth = w }
             }
         )
+    }
+
+    private func handleDrop(providers: [NSItemProvider], targetID: UUID) -> Bool {
+        guard let provider = providers.first else { return false }
+        provider.loadObject(ofClass: NSString.self) { item, _ in
+            guard let uuidString = item as? String,
+                  let draggedID = UUID(uuidString: uuidString)
+            else { return }
+            DispatchQueue.main.async {
+                store.moveNote(fromID: draggedID, toID: targetID)
+            }
+        }
+        return true
     }
 }
 
@@ -149,6 +175,7 @@ private struct HamburgerButton: NSViewRepresentable {
 private struct TabButton: View {
     let note: Note
     @ObservedObject var store: NotesStore
+    var isDragTarget: Bool = false
 
     private var isActive: Bool { store.selectedID == note.id }
     private var label: String {
@@ -179,6 +206,10 @@ private struct TabButton: View {
         .background(
             RoundedRectangle(cornerRadius: 6)
                 .fill(isActive ? Color.primary.opacity(0.12) : Color.primary.opacity(0.04))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(Color.accentColor, lineWidth: isDragTarget ? 2 : 0)
         )
         .contentShape(Rectangle())
         .onTapGesture { store.select(note.id) }

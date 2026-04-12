@@ -56,6 +56,16 @@ final class NotesStore: ObservableObject {
         }
     }
 
+    func moveNote(fromID: UUID, toID: UUID) {
+        guard fromID != toID,
+              let fromIndex = indexByID[fromID],
+              let toIndex = indexByID[toID]
+        else { return }
+        let note = notes.remove(at: fromIndex)
+        notes.insert(note, at: toIndex)
+        rebuildIndex()
+    }
+
     func select(_ id: UUID) {
         guard indexByID[id] != nil else { return }
         selectedID = id
