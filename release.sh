@@ -50,7 +50,7 @@ if [[ -d "$SPARKLE_FW" ]]; then
 fi
 
 # Read the public EdDSA key from the Sparkle keychain item if available.
-ED_KEY=$("$SIGN_TOOL" --ed-key-file - < /dev/null 2>&1 | grep -o '^[A-Za-z0-9+/=]\{40,\}$' || true)
+ED_KEY=$("$SIGN_TOOL" --ed-key-file - --account notaty-ed25519 < /dev/null 2>&1 | grep -o '^[A-Za-z0-9+/=]\{40,\}$' || true)
 if [ -z "$ED_KEY" ]; then
     ED_KEY="NOTATY_ED_KEY_PLACEHOLDER"
     echo "⚠ Could not read EdDSA public key. Using placeholder."
@@ -96,10 +96,10 @@ PLIST
 # Step 3: Sign app bundle
 echo "→ Signing app bundle..."
 if security find-certificate -c "$CERT_NAME" 2>/dev/null | grep -q "$CERT_NAME"; then
-    codesign --force --deep --sign "$CERT_NAME" --timestamp=none "$APP_BUNDLE"
+    codesign --force --deep --sign "$CERT_NAME" --timestamp "$APP_BUNDLE"
 else
     echo "  (ad-hoc — run ./setup-signing.sh for persistent identity)"
-    codesign --force --deep --sign - --timestamp=none "$APP_BUNDLE"
+    codesign --force --deep --sign - --timestamp "$APP_BUNDLE"
 fi
 
 # Step 4: Create DMG
@@ -123,7 +123,7 @@ if [ ! -f "$SIGN_TOOL" ]; then
     exit 1
 fi
 
-SIGNATURE=$("$SIGN_TOOL" "$DMG_PATH" 2>&1 | grep -o 'sparkle:edSignature="[^"]*"' | sed 's/sparkle:edSignature="//;s/"//')
+SIGNATURE=$("$SIGN_TOOL" "$DMG_PATH" --account notaty-ed25519 2>&1 | grep -o 'sparkle:edSignature="[^"]*"' | sed 's/sparkle:edSignature="//;s/"//')
 LENGTH=$(stat -f%z "$DMG_PATH")
 PUB_DATE=$(date -R)
 
