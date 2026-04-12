@@ -4,9 +4,31 @@ import Combine
 
 final class NoteWindowController: NSWindowController {
     private var cancellable: AnyCancellable?
+    private var resizeObserver: NSObjectProtocol?
+
+    private static let widthKey = "windowWidth"
+    private static let heightKey = "windowHeight"
+
+    // Returns the last user-resized size, or the Settings default if the
+    // user has never resized.
+    static var savedSize: NSSize {
+        let defaults = UserDefaults.standard
+        let w = defaults.double(forKey: widthKey)
+        let h = defaults.double(forKey: heightKey)
+        if w >= 280, h >= 180 {
+            return NSSize(width: w, height: h)
+        }
+        return Settings.shared.defaultWindowSize.size
+    }
+
+    static func saveSize(_ size: NSSize) {
+        let defaults = UserDefaults.standard
+        defaults.set(Double(size.width), forKey: widthKey)
+        defaults.set(Double(size.height), forKey: heightKey)
+    }
 
     init() {
-        let initialSize = Settings.shared.defaultWindowSize.size
+        let initialSize = Self.savedSize
 
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: initialSize),
@@ -42,6 +64,22 @@ final class NoteWindowController: NSWindowController {
         .receive(on: DispatchQueue.main)
         .sink { [weak window] title in
             window?.title = title
+        }
+
+        // Persist user-resized dimensions so the window reopens at the same size.
+        resizeObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didResizeNotification,
+            object: window,
+            queue: .main
+        ) { notification in
+            guard let w = notification.object as? NSWindow else { return }
+            Self.saveSize(w.frame.size)
+        }
+    }
+
+    deinit {
+        if let obs = resizeObserver {
+            NotificationCenter.default.removeObserver(obs)
         }
     }
 

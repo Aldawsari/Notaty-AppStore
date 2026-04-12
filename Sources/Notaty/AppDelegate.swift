@@ -32,6 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settingsCancellable = Settings.shared.$defaultWindowSize
             .dropFirst()
             .sink { [weak self] preset in
+                NoteWindowController.saveSize(preset.size)
                 self?.applyDefaultSize(preset.size, reposition: true)
             }
     }
@@ -174,7 +175,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         NSApp.activate(ignoringOtherApps: true)
-        applyDefaultSize(Settings.shared.defaultWindowSize.size, reposition: false)
+        applyDefaultSize(NoteWindowController.savedSize, reposition: false)
         positionUnderStatusItem(window)
 
         // Fade in.
