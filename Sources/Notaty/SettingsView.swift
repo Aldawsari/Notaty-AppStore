@@ -6,7 +6,7 @@ struct SettingsView: View {
     @ObservedObject private var settings = Settings.shared
     let updater: SPUUpdater?
 
-    private let appVersion = "v0.8.2"
+    private let appVersion = "v0.9"
     private let accent = Color.accentColor
 
     init(updater: SPUUpdater? = nil) {
