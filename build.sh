@@ -26,9 +26,21 @@ fi
 echo "Assembling ${APP}..."
 mkdir -p "$APP/Contents/MacOS"
 mkdir -p "$APP/Contents/Resources"
+mkdir -p "$APP/Contents/Frameworks"
 cp "$BIN" "$APP/Contents/MacOS/${APP_NAME}"
 if [[ -f "$ROOT/AppIcon.icns" ]]; then
   cp "$ROOT/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
+fi
+
+# Bundle Sparkle.framework so the binary can find it at @rpath.
+SPARKLE_FW="$ROOT/.build/arm64-apple-macosx/release/Sparkle.framework"
+if [[ ! -d "$SPARKLE_FW" ]]; then
+  SPARKLE_FW="$ROOT/.build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework"
+fi
+if [[ -d "$SPARKLE_FW" ]]; then
+  cp -R "$SPARKLE_FW" "$APP/Contents/Frameworks/Sparkle.framework"
+  # Add Frameworks dir to the binary's rpath so dyld finds it.
+  install_name_tool -add_rpath @executable_path/../Frameworks "$APP/Contents/MacOS/${APP_NAME}" 2>/dev/null || true
 fi
 
 cat > "$APP/Contents/Info.plist" <<PLIST

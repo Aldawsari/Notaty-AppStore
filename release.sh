@@ -38,6 +38,17 @@ if [[ -f "${PROJ_DIR}/AppIcon.icns" ]]; then
     cp "${PROJ_DIR}/AppIcon.icns" "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
 fi
 
+# Bundle Sparkle.framework so the binary can find it at @rpath.
+mkdir -p "$APP_BUNDLE/Contents/Frameworks"
+SPARKLE_FW="${PROJ_DIR}/.build/arm64-apple-macosx/release/Sparkle.framework"
+if [[ ! -d "$SPARKLE_FW" ]]; then
+    SPARKLE_FW="${PROJ_DIR}/.build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework"
+fi
+if [[ -d "$SPARKLE_FW" ]]; then
+    cp -R "$SPARKLE_FW" "$APP_BUNDLE/Contents/Frameworks/Sparkle.framework"
+    install_name_tool -add_rpath @executable_path/../Frameworks "$APP_BUNDLE/Contents/MacOS/${APP_NAME}" 2>/dev/null || true
+fi
+
 # Read the public EdDSA key from the Sparkle keychain item if available.
 ED_KEY=$("$SIGN_TOOL" --ed-key-file - < /dev/null 2>&1 | grep -o '^[A-Za-z0-9+/=]\{40,\}$' || true)
 if [ -z "$ED_KEY" ]; then
