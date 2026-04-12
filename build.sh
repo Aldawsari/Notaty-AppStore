@@ -87,10 +87,10 @@ CERT_NAME="Notaty Local Dev"
 # To set up the persistent cert: run ./setup-signing.sh once.
 if security find-certificate -c "$CERT_NAME" 2>/dev/null | grep -q "$CERT_NAME"; then
   echo "Signing ${APP} with ${CERT_NAME}..."
-  codesign --force --deep --sign "$CERT_NAME" "$APP"
+  codesign --force --deep --sign "$CERT_NAME" --timestamp=none "$APP"
 else
   echo "Ad-hoc signing ${APP} (run ./setup-signing.sh once to persist TCC permissions)..."
-  codesign --force --deep --sign - "$APP"
+  codesign --force --deep --sign - --timestamp=none "$APP"
 fi
 
 echo "Built ${APP}"

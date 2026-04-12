@@ -96,10 +96,10 @@ PLIST
 # Step 3: Sign app bundle
 echo "→ Signing app bundle..."
 if security find-certificate -c "$CERT_NAME" 2>/dev/null | grep -q "$CERT_NAME"; then
-    codesign --force --deep --sign "$CERT_NAME" "$APP_BUNDLE"
+    codesign --force --deep --sign "$CERT_NAME" --timestamp=none "$APP_BUNDLE"
 else
     echo "  (ad-hoc — run ./setup-signing.sh for persistent identity)"
-    codesign --force --deep --sign - "$APP_BUNDLE"
+    codesign --force --deep --sign - --timestamp=none "$APP_BUNDLE"
 fi
 
 # Step 4: Create DMG
