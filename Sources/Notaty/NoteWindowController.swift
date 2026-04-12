@@ -36,7 +36,11 @@ final class NoteWindowController: NSWindowController {
             backing: .buffered,
             defer: false
         )
-        window.isMovableByWindowBackground = true
+        // Don't use isMovableByWindowBackground — it intercepts all drags on the
+        // window background BEFORE SwiftUI's .onDrag gets them, which makes tab
+        // drag-to-reorder impossible. The user can still move the window by
+        // dragging the (transparent) title bar area at the very top.
+        window.isMovableByWindowBackground = false
         window.titlebarAppearsTransparent = true
         window.minSize = NSSize(width: 280, height: 180)
         window.isReleasedWhenClosed = false
