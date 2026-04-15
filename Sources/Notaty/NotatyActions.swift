@@ -101,9 +101,12 @@ enum NotatyActions {
                 // Single .txt file
                 let text = try String(contentsOf: url, encoding: .utf8)
                 let title = url.deletingPathExtension().lastPathComponent
-                let note = Note(title: title, text: text)
-                NotesStore.shared.notes.append(note)
-                NotesStore.shared.selectedID = note.id
+                let store = NotesStore.shared
+                let note = store.addNote()
+                store.update(id: note.id) {
+                    $0.title = title
+                    $0.text = text
+                }
             }
         } catch {
             let alert = NSAlert(error: error)
@@ -148,8 +151,12 @@ enum NotatyActions {
                     title = String(title[range.upperBound...])
                 }
 
-                let note = Note(title: title.isEmpty ? "Untitled" : title, text: text)
-                NotesStore.shared.notes.append(note)
+                let store = NotesStore.shared
+                let note = store.addNote()
+                store.update(id: note.id) {
+                    $0.title = title.isEmpty ? "Untitled" : title
+                    $0.text = text
+                }
                 imported += 1
             }
 
