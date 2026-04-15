@@ -47,6 +47,23 @@ struct SettingsView: View {
                     .frame(maxWidth: .infinity)
                 }
 
+                // ── Data ─────────────────────────────────────────────────
+                sectionHeader("Data")
+
+                settingsCard {
+                    Button {
+                        NotatyActions.exportAllNotes()
+                    } label: {
+                        HStack {
+                            Image(systemName: "arrow.up.doc")
+                            Text("Export All Notes")
+                        }
+                        .font(.system(size: 13))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(accent)
+                }
+
                 // ── About ────────────────────────────────────────────────
                 sectionHeader("About")
 
