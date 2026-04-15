@@ -253,6 +253,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NotatyActions.saveSelectedNoteAs()
     }
 
+    @objc func exportAll() {
+        NotatyActions.exportAllNotes()
+    }
+
     @objc func openSettings() {
         SettingsWindowController.show(updater: updaterController.updater)
     }
