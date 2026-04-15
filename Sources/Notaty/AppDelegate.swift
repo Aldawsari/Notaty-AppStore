@@ -82,14 +82,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         saveAsItem.keyEquivalentModifierMask = [.command, .shift]
         saveAsItem.target = self
         fileMenu.addItem(saveAsItem)
-        let exportItem = NSMenuItem(
-            title: "Export All Notes…",
-            action: #selector(exportAll),
-            keyEquivalent: "e"
-        )
-        exportItem.keyEquivalentModifierMask = [.command, .shift]
-        exportItem.target = self
-        fileMenu.addItem(exportItem)
         fileMenuItem.submenu = fileMenu
         mainMenu.addItem(fileMenuItem)
 

@@ -22,14 +22,6 @@ enum NotatyMenuBuilder {
         saveItem.keyEquivalentModifierMask = [.command, .shift]
         menu.addItem(saveItem)
 
-        let exportItem = NSMenuItem(
-            title: "Export All Notes…",
-            action: #selector(AppDelegate.exportAll),
-            keyEquivalent: "e"
-        )
-        exportItem.keyEquivalentModifierMask = [.command, .shift]
-        menu.addItem(exportItem)
-
         menu.addItem(NSMenuItem.separator())
         menu.addItem(
             withTitle: "Quit Notaty",
