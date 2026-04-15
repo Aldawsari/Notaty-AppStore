@@ -1,6 +1,7 @@
 import Foundation
 import AppKit
 import Combine
+import ServiceManagement
 
 enum AppTheme: String, CaseIterable, Identifiable {
     case system, light, dark
@@ -64,8 +65,16 @@ final class Settings: ObservableObject {
         }
     }
 
+    @Published var launchAtLogin: Bool {
+        didSet {
+            UserDefaults.standard.set(launchAtLogin, forKey: Self.launchKey)
+            updateLaunchAtLogin(launchAtLogin)
+        }
+    }
+
     private static let sizeKey = "defaultWindowSize"
     private static let themeKey = "appTheme"
+    private static let launchKey = "launchAtLogin"
 
     private init() {
         let rawSize = UserDefaults.standard.string(forKey: Self.sizeKey) ?? ""
@@ -73,5 +82,26 @@ final class Settings: ObservableObject {
 
         let rawTheme = UserDefaults.standard.string(forKey: Self.themeKey) ?? ""
         self.theme = AppTheme(rawValue: rawTheme) ?? .system
+
+        // Default to ON if never set
+        if UserDefaults.standard.object(forKey: Self.launchKey) == nil {
+            self.launchAtLogin = true
+            UserDefaults.standard.set(true, forKey: Self.launchKey)
+            updateLaunchAtLogin(true)
+        } else {
+            self.launchAtLogin = UserDefaults.standard.bool(forKey: Self.launchKey)
+        }
+    }
+
+    private func updateLaunchAtLogin(_ enabled: Bool) {
+        do {
+            if enabled {
+                try SMAppService.mainApp.register()
+            } else {
+                try SMAppService.mainApp.unregister()
+            }
+        } catch {
+            NSLog("Launch at Login toggle failed: \(error)")
+        }
     }
 }
