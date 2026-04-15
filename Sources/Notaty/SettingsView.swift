@@ -32,6 +32,16 @@ struct SettingsView: View {
                     .frame(maxWidth: .infinity)
                 }
 
+                // ── General ─────────────────────────────────────────────
+                sectionHeader("General")
+
+                settingsCard {
+                    Toggle(isOn: $settings.launchAtLogin) {
+                        rowLabel("Launch at Login")
+                    }
+                    .toggleStyle(.switch)
+                }
+
                 // ── Appearance ───────────────────────────────────────────
                 sectionHeader("Appearance")
 
