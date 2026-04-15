@@ -62,6 +62,20 @@ struct SettingsView: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundColor(accent)
+
+                    Divider()
+
+                    Button {
+                        NotatyActions.importNotes()
+                    } label: {
+                        HStack {
+                            Image(systemName: "arrow.down.doc")
+                            Text("Import Notes")
+                        }
+                        .font(.system(size: 13))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(accent)
                 }
 
                 // ── About ────────────────────────────────────────────────

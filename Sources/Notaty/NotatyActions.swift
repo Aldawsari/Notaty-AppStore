@@ -82,6 +82,90 @@ enum NotatyActions {
         }
     }
 
+    static func importNotes() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [
+            UTType(filenameExtension: "zip")!,
+            .plainText,
+        ]
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        do {
+            if url.pathExtension.lowercased() == "zip" {
+                importFromZip(url)
+            } else {
+                // Single .txt file
+                let text = try String(contentsOf: url, encoding: .utf8)
+                let title = url.deletingPathExtension().lastPathComponent
+                let note = Note(title: title, text: text)
+                NotesStore.shared.notes.append(note)
+                NotesStore.shared.selectedID = note.id
+            }
+        } catch {
+            let alert = NSAlert(error: error)
+            alert.runModal()
+        }
+    }
+
+    private static func importFromZip(_ url: URL) {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+
+        do {
+            try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+
+            // Unzip using ditto
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
+            process.arguments = ["-x", "-k", url.path, tempDir.path]
+            try process.run()
+            process.waitUntilExit()
+
+            guard process.terminationStatus == 0 else {
+                let alert = NSAlert()
+                alert.messageText = "Import Failed"
+                alert.informativeText = "Could not extract zip file."
+                alert.alertStyle = .warning
+                alert.runModal()
+                return
+            }
+
+            // Find all .txt files recursively
+            let enumerator = FileManager.default.enumerator(at: tempDir, includingPropertiesForKeys: nil)
+            var imported = 0
+
+            while let fileURL = enumerator?.nextObject() as? URL {
+                guard fileURL.pathExtension.lowercased() == "txt" else { continue }
+                guard let text = try? String(contentsOf: fileURL, encoding: .utf8) else { continue }
+
+                // Strip numbering prefix like "1 - " from export filenames
+                var title = fileURL.deletingPathExtension().lastPathComponent
+                if let range = title.range(of: #"^\d+\s*-\s*"#, options: .regularExpression) {
+                    title = String(title[range.upperBound...])
+                }
+
+                let note = Note(title: title.isEmpty ? "Untitled" : title, text: text)
+                NotesStore.shared.notes.append(note)
+                imported += 1
+            }
+
+            if imported > 0 {
+                NotesStore.shared.selectedID = NotesStore.shared.notes.last?.id
+            }
+
+            try? FileManager.default.removeItem(at: tempDir)
+
+        } catch {
+            let alert = NSAlert(error: error)
+            alert.runModal()
+            try? FileManager.default.removeItem(at: tempDir)
+        }
+    }
+
     // Send a standard editing action through the responder chain so it reaches
     // the currently focused NSTextView regardless of which view is hosting it.
     static func sendEditAction(_ selector: Selector) {
