@@ -8,6 +8,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsCancellable: AnyCancellable?
     private var outsideClickMonitor: Any?
     private var localEscMonitor: Any?
+    private var deactivationObserver: Any?
+    private var suppressDismiss = false
     private let updaterController = SPUStandardUpdaterController(
         startingUpdater: true,
         updaterDelegate: nil,
@@ -220,25 +222,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func installDismissMonitors() {
-        // Click outside the note window → hide (native popover behavior).
-        // But don't dismiss if any modal/sheet/alert is visible (e.g. system
-        // permission dialogs for microphone or speech recognition).
         outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: [.leftMouseDown, .rightMouseDown]
         ) { [weak self] _ in
-            guard let self,
-                  let window = self.windowController.window else { return }
-            // If our window is not the key window, a dialog/alert has focus — skip dismiss
-            guard window.isKeyWindow else { return }
+            guard let self, !self.suppressDismiss else { return }
             self.hideWindow()
         }
-        // Escape inside the window → hide.
         localEscMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             if event.keyCode == 53 && event.window === self?.windowController.window {
                 self?.hideWindow()
                 return nil
             }
             return event
+        }
+        // When the app deactivates (system dialog, Spotlight, etc.) suppress
+        // dismiss until it reactivates. This prevents the permission dialog
+        // from closing our window.
+        deactivationObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didResignActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.suppressDismiss = true
+            // Re-enable dismiss when app becomes active again
+            NotificationCenter.default.addObserver(
+                forName: NSApplication.didBecomeActiveNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] note in
+                // Small delay so the reactivation click itself isn't caught
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    self?.suppressDismiss = false
+                }
+                NotificationCenter.default.removeObserver(note)
+            }
         }
     }
 
@@ -251,6 +268,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSEvent.removeMonitor(m)
             localEscMonitor = nil
         }
+        if let m = deactivationObserver {
+            NotificationCenter.default.removeObserver(m)
+            deactivationObserver = nil
+        }
+        suppressDismiss = false
     }
 
     private func applyDefaultSize(_ size: NSSize, reposition: Bool) {
