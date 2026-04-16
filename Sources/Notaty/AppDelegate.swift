@@ -8,8 +8,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsCancellable: AnyCancellable?
     private var outsideClickMonitor: Any?
     private var localEscMonitor: Any?
-    private var deactivationObserver: Any?
-    private var suppressDismiss = false
+    /// Set to true to prevent the window from auto-hiding on outside clicks.
+    /// Voice recording and transcription set this to avoid permission dialogs
+    /// dismissing the window.
+    var suppressDismiss = false
     private let updaterController = SPUStandardUpdaterController(
         startingUpdater: true,
         updaterDelegate: nil,
@@ -235,28 +237,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             return event
         }
-        // When the app deactivates (system dialog, Spotlight, etc.) suppress
-        // dismiss until it reactivates. This prevents the permission dialog
-        // from closing our window.
-        deactivationObserver = NotificationCenter.default.addObserver(
-            forName: NSApplication.didResignActiveNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            self?.suppressDismiss = true
-            // Re-enable dismiss when app becomes active again
-            NotificationCenter.default.addObserver(
-                forName: NSApplication.didBecomeActiveNotification,
-                object: nil,
-                queue: .main
-            ) { [weak self] note in
-                // Small delay so the reactivation click itself isn't caught
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    self?.suppressDismiss = false
-                }
-                NotificationCenter.default.removeObserver(note)
-            }
-        }
     }
 
     private func removeDismissMonitors() {
@@ -268,11 +248,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSEvent.removeMonitor(m)
             localEscMonitor = nil
         }
-        if let m = deactivationObserver {
-            NotificationCenter.default.removeObserver(m)
-            deactivationObserver = nil
-        }
-        suppressDismiss = false
     }
 
     private func applyDefaultSize(_ size: NSSize, reposition: Bool) {

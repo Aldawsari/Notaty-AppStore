@@ -21,6 +21,10 @@ struct VoiceNoteView: View {
         return FileManager.default.fileExists(atPath: url.path)
     }
 
+    private var appDelegate: AppDelegate? {
+        NSApp.delegate as? AppDelegate
+    }
+
     private var layoutDirection: LayoutDirection {
         let mode = note?.direction ?? .auto
         let text = note?.text ?? ""
@@ -85,6 +89,13 @@ struct VoiceNoteView: View {
                 _ = recorder.stopRecording()
             }
             player.stop()
+            appDelegate?.suppressDismiss = false
+        }
+        .onChange(of: recorder.isRecording) { recording in
+            appDelegate?.suppressDismiss = recording || isTranscribing
+        }
+        .onChange(of: isTranscribing) { transcribing in
+            appDelegate?.suppressDismiss = recorder.isRecording || transcribing
         }
     }
 
