@@ -65,10 +65,29 @@ struct SettingsView: View {
                         rowLabel("Auto-transcribe after recording")
                     }
                     .toggleStyle(.switch)
-                }
 
-                settingsCard {
-                    EnhancedTranscriptionSection(settings: settings)
+                    Divider()
+
+                    rowLabel("Transcription Languages")
+                    Text("The app tries both languages and picks the best match.")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+
+                    HStack(spacing: 12) {
+                        Picker("Language 1", selection: $settings.transcribeLang1) {
+                            ForEach(Settings.supportedLanguages, id: \.id) { lang in
+                                Text(lang.label).tag(lang.id)
+                            }
+                        }
+                        .labelsHidden()
+
+                        Picker("Language 2", selection: $settings.transcribeLang2) {
+                            ForEach(Settings.supportedLanguages, id: \.id) { lang in
+                                Text(lang.label).tag(lang.id)
+                            }
+                        }
+                        .labelsHidden()
+                    }
                 }
 
                 // ── Data ─────────────────────────────────────────────────
@@ -203,97 +222,5 @@ struct SettingsView: View {
         Text(text)
             .font(.system(size: 13))
             .foregroundColor(.primary)
-    }
-}
-
-// MARK: - Enhanced Transcription Section
-
-private struct EnhancedTranscriptionSection: View {
-    @ObservedObject var settings: Settings
-    @State private var isDownloading = false
-    @State private var downloadProgress: Double = 0
-    @State private var errorText = ""
-
-    var body: some View {
-        Toggle(isOn: $settings.enhancedTranscription) {
-            Text("Enhanced Transcription")
-                .font(.system(size: 13))
-        }
-        .toggleStyle(.switch)
-        .disabled(isDownloading)
-        .onChange(of: settings.enhancedTranscription) { enabled in
-            if enabled && !settings.enhancedModelReady {
-                downloadModel()
-            }
-        }
-
-        Text("Uses a larger AI model (~600 MB download, one-time) for better accuracy, mixed-language support (e.g. Arabic + English in the same sentence), and more languages.")
-            .font(.system(size: 11))
-            .foregroundColor(.secondary)
-            .fixedSize(horizontal: false, vertical: true)
-
-        if settings.enhancedTranscription {
-            if isDownloading {
-                VStack(alignment: .leading, spacing: 6) {
-                    ProgressView(value: downloadProgress)
-                        .progressViewStyle(.linear)
-
-                    HStack {
-                        Text("Downloading model...")
-                            .font(.system(size: 11))
-                            .foregroundColor(.secondary)
-                        Spacer()
-                        Text("\(Int(downloadProgress * 100))%")
-                            .font(.system(size: 11, design: .monospaced))
-                            .foregroundColor(.secondary)
-                    }
-                }
-            } else if settings.enhancedModelReady {
-                HStack(spacing: 4) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.green)
-                        .font(.system(size: 12))
-                    Text("Model ready")
-                        .font(.system(size: 11))
-                        .foregroundColor(.secondary)
-                }
-            }
-        }
-
-        if !errorText.isEmpty {
-            Text(errorText)
-                .font(.system(size: 11))
-                .foregroundColor(.red)
-        }
-    }
-
-    private func downloadModel() {
-        if SpeechTranscriber.checkEnhancedModelCached() {
-            settings.enhancedModelReady = true
-            return
-        }
-
-        isDownloading = true
-        downloadProgress = 0
-        errorText = ""
-
-        Task {
-            do {
-                try await SpeechTranscriber.downloadEnhancedModel { progress in
-                    Task { @MainActor in
-                        downloadProgress = progress
-                    }
-                }
-                await MainActor.run {
-                    isDownloading = false
-                }
-            } catch {
-                await MainActor.run {
-                    isDownloading = false
-                    settings.enhancedTranscription = false
-                    errorText = "Download failed: \(error.localizedDescription)"
-                }
-            }
-        }
     }
 }
