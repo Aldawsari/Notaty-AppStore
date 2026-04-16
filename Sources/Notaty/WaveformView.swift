@@ -12,17 +12,17 @@ struct WaveformView: View {
     var body: some View {
         GeometryReader { geo in
             let count = samples.isEmpty ? barCount : samples.count
-            let spacing: CGFloat = 2
-            let barWidth = max(1, (geo.size.width - spacing * CGFloat(count - 1)) / CGFloat(count))
+            let spacing: CGFloat = 2.5
+            let barWidth = max(2, (geo.size.width - spacing * CGFloat(count - 1)) / CGFloat(count))
             let maxHeight = geo.size.height
 
             HStack(alignment: .center, spacing: spacing) {
                 ForEach(0..<count, id: \.self) { i in
                     let amplitude = samples.isEmpty ? 0.15 : CGFloat(samples[i])
-                    let height = max(2, amplitude * maxHeight)
+                    let height = max(3, amplitude * maxHeight)
                     let played = Double(i) / Double(max(1, count - 1)) <= progress
 
-                    RoundedRectangle(cornerRadius: barWidth / 2)
+                    Capsule()
                         .fill(played ? Color.accentColor : Color.secondary.opacity(0.35))
                         .frame(width: barWidth, height: height)
                 }
