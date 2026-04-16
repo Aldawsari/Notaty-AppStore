@@ -4,3 +4,4 @@ dist/
 build_iconset/
 *.xcuserstate
 .swiftpm/
+Models/

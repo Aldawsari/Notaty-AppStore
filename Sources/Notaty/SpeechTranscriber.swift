@@ -11,23 +11,41 @@ final class SpeechTranscriber {
 
     private static var whisperKit: WhisperKit?
 
-    /// Detect language with WhisperKit, then transcribe with Apple SFSpeechRecognizer.
+    /// Detect language with WhisperKit (bundled model), then transcribe with Apple SFSpeechRecognizer.
     static func transcribe(audioURL: URL) async throws -> String {
-        // 1. Detect language using WhisperKit (tiny model — fast)
+        // 1. Detect language using bundled WhisperKit tiny model
         if whisperKit == nil {
-            whisperKit = try await WhisperKit(model: "tiny")
+            let modelPath = bundledModelPath()
+            if let modelPath {
+                let config = WhisperKitConfig(modelFolder: modelPath)
+                whisperKit = try await WhisperKit(config)
+            } else {
+                // Fallback: download if bundled model not found
+                whisperKit = try await WhisperKit(WhisperKitConfig(model: "tiny"))
+            }
         }
 
         var locale = Locale(identifier: "en-US")
         if let pipe = whisperKit {
             let langResult = try await pipe.detectLanguage(audioPath: audioURL.path)
             let lang = langResult.language
-            // Map WhisperKit language code to a locale
             locale = mapToLocale(lang)
         }
 
         // 2. Transcribe with SFSpeechRecognizer using detected locale
         return try await transcribeWithApple(audioURL: audioURL, locale: locale)
+    }
+
+    /// Look for the bundled model inside the app's Resources directory.
+    private static func bundledModelPath() -> String? {
+        // In .app bundle: Contents/Resources/Models/openai_whisper-tiny
+        if let resourcePath = Bundle.main.resourcePath {
+            let path = (resourcePath as NSString).appendingPathComponent("Models/openai_whisper-tiny")
+            if FileManager.default.fileExists(atPath: path) {
+                return path
+            }
+        }
+        return nil
     }
 
     /// Map Whisper language code (e.g. "ar", "en") to an SFSpeechRecognizer locale.

@@ -12,6 +12,12 @@ mkdir -p "$APP/Contents/Frameworks"
 
 cp .build/debug/Notaty "$APP/Contents/MacOS/Notaty"
 
+# Bundle WhisperKit model for language detection
+if [[ -d "Models/openai_whisper-tiny" ]]; then
+  mkdir -p "$APP/Contents/Resources/Models"
+  cp -R Models/openai_whisper-tiny "$APP/Contents/Resources/Models/"
+fi
+
 # Copy Sparkle framework
 SPARKLE_FW=".build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework"
 if [[ -d "$SPARKLE_FW" ]]; then

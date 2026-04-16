@@ -28,6 +28,14 @@ mkdir -p "$APP/Contents/MacOS"
 mkdir -p "$APP/Contents/Resources"
 mkdir -p "$APP/Contents/Frameworks"
 cp "$BIN" "$APP/Contents/MacOS/${APP_NAME}"
+
+# Bundle WhisperKit model for language detection
+if [[ -d "$ROOT/Models/openai_whisper-tiny" ]]; then
+  echo "Bundling WhisperKit model..."
+  mkdir -p "$APP/Contents/Resources/Models"
+  cp -R "$ROOT/Models/openai_whisper-tiny" "$APP/Contents/Resources/Models/"
+fi
+
 if [[ -f "$ROOT/AppIcon.icns" ]]; then
   cp "$ROOT/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
 fi
