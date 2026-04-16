@@ -192,23 +192,28 @@ struct VoiceNoteView: View {
     }
 
     private func stopAndTranscribe() {
-        guard let url = recorder.stopRecording() else { return }
+        _ = recorder.stopRecording()
+        guard let url = audioURL, FileManager.default.fileExists(atPath: url.path) else { return }
 
-        // Load audio into player
-        player.load(url: url)
+        // Small delay to ensure file is fully written
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            // Load audio into player
+            player.load(url: url)
 
-        // Transcribe
-        isTranscribing = true
-        Task {
-            do {
-                let text = try await SpeechTranscriber.transcribe(audioURL: url)
-                await MainActor.run {
-                    store.update(id: noteID) { $0.text = text }
-                    isTranscribing = false
-                }
-            } catch {
-                await MainActor.run {
-                    isTranscribing = false
+            // Transcribe
+            isTranscribing = true
+            Task {
+                do {
+                    let text = try await SpeechTranscriber.transcribe(audioURL: url)
+                    await MainActor.run {
+                        store.update(id: noteID) { $0.text = text }
+                        isTranscribing = false
+                    }
+                } catch {
+                    await MainActor.run {
+                        print("Transcription error: \(error)")
+                        isTranscribing = false
+                    }
                 }
             }
         }
