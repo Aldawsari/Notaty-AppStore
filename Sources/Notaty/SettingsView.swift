@@ -68,25 +68,16 @@ struct SettingsView: View {
 
                     Divider()
 
-                    rowLabel("Transcription Languages")
-                    Text("The app tries both languages and picks the best match.")
-                        .font(.system(size: 11))
-                        .foregroundColor(.secondary)
-
-                    HStack(spacing: 12) {
-                        Picker("Language 1", selection: $settings.transcribeLang1) {
+                    HStack {
+                        rowLabel("Transcription Language")
+                        Spacer()
+                        Picker("", selection: $settings.transcribeLanguage) {
                             ForEach(Settings.supportedLanguages, id: \.id) { lang in
                                 Text(lang.label).tag(lang.id)
                             }
                         }
                         .labelsHidden()
-
-                        Picker("Language 2", selection: $settings.transcribeLang2) {
-                            ForEach(Settings.supportedLanguages, id: \.id) { lang in
-                                Text(lang.label).tag(lang.id)
-                            }
-                        }
-                        .labelsHidden()
+                        .frame(width: 160)
                     }
                 }
 

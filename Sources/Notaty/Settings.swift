@@ -76,12 +76,8 @@ final class Settings: ObservableObject {
         didSet { UserDefaults.standard.set(autoTranscribe, forKey: Self.autoTranscribeKey) }
     }
 
-    @Published var transcribeLang1: String {
-        didSet { UserDefaults.standard.set(transcribeLang1, forKey: Self.lang1Key) }
-    }
-
-    @Published var transcribeLang2: String {
-        didSet { UserDefaults.standard.set(transcribeLang2, forKey: Self.lang2Key) }
+    @Published var transcribeLanguage: String {
+        didSet { UserDefaults.standard.set(transcribeLanguage, forKey: Self.langKey) }
     }
 
     static let supportedLanguages: [(id: String, label: String)] = [
@@ -106,8 +102,7 @@ final class Settings: ObservableObject {
     private static let themeKey = "appTheme"
     private static let launchKey = "launchAtLogin"
     private static let autoTranscribeKey = "autoTranscribe"
-    private static let lang1Key = "transcribeLang1"
-    private static let lang2Key = "transcribeLang2"
+    private static let langKey = "transcribeLanguage"
 
     private init() {
         let rawSize = UserDefaults.standard.string(forKey: Self.sizeKey) ?? ""
@@ -119,8 +114,7 @@ final class Settings: ObservableObject {
         self.autoTranscribe = UserDefaults.standard.object(forKey: Self.autoTranscribeKey) != nil
             ? UserDefaults.standard.bool(forKey: Self.autoTranscribeKey)
             : false
-        self.transcribeLang1 = UserDefaults.standard.string(forKey: Self.lang1Key) ?? "ar-SA"
-        self.transcribeLang2 = UserDefaults.standard.string(forKey: Self.lang2Key) ?? "en-US"
+        self.transcribeLanguage = UserDefaults.standard.string(forKey: Self.langKey) ?? "ar-SA"
 
         // Default to ON if never set
         if UserDefaults.standard.object(forKey: Self.launchKey) == nil {
