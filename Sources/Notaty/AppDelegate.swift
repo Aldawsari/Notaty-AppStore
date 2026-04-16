@@ -221,13 +221,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func installDismissMonitors() {
         // Click outside the note window → hide (native popover behavior).
-        // Skip if a system dialog (permission prompt) is in front of us.
+        // But don't dismiss if any modal/sheet/alert is visible (e.g. system
+        // permission dialogs for microphone or speech recognition).
         outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: [.leftMouseDown, .rightMouseDown]
         ) { [weak self] _ in
-            guard let self else { return }
-            // If our app is not active, a system dialog took focus — don't dismiss
-            guard NSApp.isActive else { return }
+            guard let self,
+                  let window = self.windowController.window else { return }
+            // If our window is not the key window, a dialog/alert has focus — skip dismiss
+            guard window.isKeyWindow else { return }
             self.hideWindow()
         }
         // Escape inside the window → hide.
