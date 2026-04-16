@@ -15,7 +15,7 @@ final class SpeechTranscriber {
         }
     }
 
-    /// Transcribe by running Arabic and English in parallel, return the best result.
+    /// Transcribe by running two languages in parallel (from Settings), return the best result.
     static func transcribe(audioURL: URL) async throws -> String {
         let status = SFSpeechRecognizer.authorizationStatus()
         if status != .authorized {
@@ -29,25 +29,22 @@ final class SpeechTranscriber {
             }
         }
 
-        async let arabic = transcribeWith(locale: Locale(identifier: "ar-SA"), audioURL: audioURL)
-        async let english = transcribeWith(locale: Locale(identifier: "en-US"), audioURL: audioURL)
+        let lang1 = await MainActor.run { Settings.shared.transcribeLang1 }
+        let lang2 = await MainActor.run { Settings.shared.transcribeLang2 }
 
-        let arResult = await arabic
-        let enResult = await english
+        async let result1 = transcribeWith(locale: Locale(identifier: lang1), audioURL: audioURL)
+        async let result2 = transcribeWith(locale: Locale(identifier: lang2), audioURL: audioURL)
 
-        // Pick the result with higher confidence, fall back to whichever succeeded
-        switch (arResult, enResult) {
-        case (.success(let ar), .success(let en)):
-            // Use the one with higher confidence
-            if ar.confidence >= en.confidence {
-                return ar.text
-            } else {
-                return en.text
-            }
-        case (.success(let ar), .failure):
-            return ar.text
-        case (.failure, .success(let en)):
-            return en.text
+        let r1 = await result1
+        let r2 = await result2
+
+        switch (r1, r2) {
+        case (.success(let a), .success(let b)):
+            return a.confidence >= b.confidence ? a.text : b.text
+        case (.success(let a), .failure):
+            return a.text
+        case (.failure, .success(let b)):
+            return b.text
         case (.failure(let err), .failure):
             throw err
         }

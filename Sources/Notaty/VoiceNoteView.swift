@@ -112,7 +112,7 @@ struct VoiceNoteView: View {
 
             Spacer()
 
-            Button(action: stopAndTranscribe) {
+            Button(action: stopRecordingAction) {
                 Image(systemName: "stop.circle.fill")
                     .font(.system(size: 20))
                     .foregroundColor(.red)
@@ -163,6 +163,17 @@ struct VoiceNoteView: View {
             Text(formatTime(player.duration))
                 .font(.system(size: 11, design: .monospaced))
                 .foregroundColor(.secondary)
+
+            // Transcribe button — shown when there's audio but no transcription yet
+            if !isTranscribing && (note?.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Button(action: transcribeAudio) {
+                    Image(systemName: "text.badge.plus")
+                        .font(.system(size: 14))
+                        .foregroundColor(.accentColor)
+                }
+                .buttonStyle(.plain)
+                .help("Transcribe")
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -196,29 +207,34 @@ struct VoiceNoteView: View {
         recorder.startRecording(to: url)
     }
 
-    private func stopAndTranscribe() {
+    private func stopRecordingAction() {
         _ = recorder.stopRecording()
         guard let url = audioURL, FileManager.default.fileExists(atPath: url.path) else { return }
 
-        // Small delay to ensure file is fully written
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            // Load audio into player
             player.load(url: url)
 
-            // Transcribe
-            isTranscribing = true
-            Task {
-                do {
-                    let text = try await SpeechTranscriber.transcribe(audioURL: url)
-                    await MainActor.run {
-                        store.update(id: noteID) { $0.text = text }
-                        isTranscribing = false
-                    }
-                } catch {
-                    await MainActor.run {
-                        print("Transcription error: \(error)")
-                        isTranscribing = false
-                    }
+            if Settings.shared.autoTranscribe {
+                transcribeAudio()
+            }
+        }
+    }
+
+    private func transcribeAudio() {
+        guard let url = audioURL, FileManager.default.fileExists(atPath: url.path) else { return }
+
+        isTranscribing = true
+        Task {
+            do {
+                let text = try await SpeechTranscriber.transcribe(audioURL: url)
+                await MainActor.run {
+                    store.update(id: noteID) { $0.text = text }
+                    isTranscribing = false
+                }
+            } catch {
+                await MainActor.run {
+                    print("Transcription error: \(error)")
+                    isTranscribing = false
                 }
             }
         }
