@@ -24,6 +24,9 @@ final class NotesStore: ObservableObject {
     private static let backupURL: URL = {
         appSupportDir.appendingPathComponent("notes.json")
     }()
+    static let audioDir: URL = {
+        appSupportDir.appendingPathComponent("audio", isDirectory: true)
+    }()
 
     private init() {
         ensureAppSupportDir()
@@ -47,13 +50,42 @@ final class NotesStore: ObservableObject {
         return note
     }
 
+    @discardableResult
+    func addVoiceNote() -> Note {
+        let f = DateFormatter()
+        f.dateFormat = "MMM d, HH:mm"
+        let timestamp = f.string(from: Date())
+        let id = UUID()
+        let note = Note(
+            id: id,
+            title: "ملاحظة صوتية \(timestamp)",
+            text: "",
+            type: .voice,
+            audioFilename: "\(id.uuidString).m4a"
+        )
+        notes.append(note)
+        indexByID[note.id] = notes.count - 1
+        selectedID = note.id
+        return note
+    }
+
     func delete(id: UUID) {
         guard let index = indexByID[id] else { return }
+        let note = notes[index]
+        if note.type == .voice, let filename = note.audioFilename {
+            let audioURL = Self.audioDir.appendingPathComponent(filename)
+            try? FileManager.default.removeItem(at: audioURL)
+        }
         notes.remove(at: index)
         rebuildIndex()
         if selectedID == id {
             selectedID = notes.first?.id
         }
+    }
+
+    static func audioURL(for note: Note) -> URL? {
+        guard let filename = note.audioFilename else { return nil }
+        return audioDir.appendingPathComponent(filename)
     }
 
     func moveNote(fromID: UUID, toID: UUID) {
@@ -185,6 +217,13 @@ final class NotesStore: ObservableObject {
     private func ensureAppSupportDir() {
         try? FileManager.default.createDirectory(
             at: Self.appSupportDir,
+            withIntermediateDirectories: true
+        )
+    }
+
+    func ensureAudioDir() {
+        try? FileManager.default.createDirectory(
+            at: Self.audioDir,
             withIntermediateDirectories: true
         )
     }
