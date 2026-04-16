@@ -57,7 +57,7 @@ struct VoiceNoteView: View {
                 HStack(spacing: 8) {
                     ProgressView()
                         .scaleEffect(0.8)
-                    Text("جاري التفريغ...")
+                    Text("Transcribing...")
                         .font(.system(size: 12))
                         .foregroundColor(.secondary)
                 }
@@ -102,7 +102,7 @@ struct VoiceNoteView: View {
                     value: recorder.isRecording
                 )
 
-            Text("جاري التسجيل...")
+            Text("Recording...")
                 .font(.system(size: 12))
                 .foregroundColor(.secondary)
 
@@ -190,7 +190,7 @@ struct VoiceNoteView: View {
         HStack {
             Spacer()
             Button(action: startRecording) {
-                Label("ابدأ التسجيل", systemImage: "mic.fill")
+                Label("Start Recording", systemImage: "mic.fill")
                     .font(.system(size: 13, weight: .medium))
             }
             .buttonStyle(.borderedProminent)
