@@ -44,6 +44,7 @@ final class NoteWindowController: NSWindowController {
         window.titlebarAppearsTransparent = true
         window.minSize = NSSize(width: 280, height: 180)
         window.isReleasedWhenClosed = false
+        window.hidesOnDeactivate = false
         // Match Settings: opaque, windowBackgroundColor, no popover material.
         window.isOpaque = true
         window.backgroundColor = NSColor.windowBackgroundColor
