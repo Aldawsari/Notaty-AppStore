@@ -118,7 +118,7 @@ struct SettingsView: View {
 
                     if let updater {
                         Button {
-                            updater.checkForUpdates()
+                            NSApp.activate(ignoringOtherApps: true); updater.checkForUpdates()
                         } label: {
                             HStack {
                                 Image(systemName: "arrow.triangle.2.circlepath")
