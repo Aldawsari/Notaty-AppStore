@@ -79,17 +79,14 @@ struct VoiceNoteView: View {
             // Transcription text (toggle on/off)
             if showTranscription && !transcriptionText.isEmpty {
                 Divider()
-                ScrollView {
-                    Text(transcriptionText)
-                        .font(.system(size: 13))
-                        .foregroundColor(.primary)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(12)
-                        .environment(\.layoutDirection, transcriptionDirection)
-                }
-                .frame(maxHeight: 150)
-                .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                Text(transcriptionText)
+                    .font(.system(size: 13))
+                    .foregroundColor(.primary)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .environment(\.layoutDirection, transcriptionDirection)
+                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
             }
 
             Divider()
