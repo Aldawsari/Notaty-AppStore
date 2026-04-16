@@ -1,41 +1,46 @@
 import SwiftUI
 import AVFoundation
 
-/// Extracts amplitude samples from an audio file and renders a waveform.
+/// Extracts amplitude samples from an audio file and renders a smooth waveform curve.
 struct WaveformView: View {
     let audioURL: URL
     let progress: Double // 0...1
-    var barCount: Int = 60
+    var sampleCount: Int = 80
 
     @State private var samples: [Float] = []
 
     var body: some View {
         GeometryReader { geo in
-            let count = samples.isEmpty ? barCount : samples.count
-            let spacing: CGFloat = 1.5
-            let barWidth = max(1.5, (geo.size.width - spacing * CGFloat(count - 1)) / CGFloat(count))
-            let maxHeight = geo.size.height
+            let w = geo.size.width
+            let h = geo.size.height
+            let mid = h / 2
 
-            HStack(alignment: .center, spacing: spacing) {
-                ForEach(0..<count, id: \.self) { i in
-                    let amplitude = samples.isEmpty ? 0.15 : CGFloat(samples[i])
-                    let height = max(3, amplitude * maxHeight)
-                    let played = Double(i) / Double(max(1, count - 1)) <= progress
+            if !samples.isEmpty {
+                // Played portion
+                SmoothWavePath(samples: samples, width: w, height: h)
+                    .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+                    .clipShape(Rectangle().size(width: w * progress, height: h))
 
-                    Capsule()
-                        .fill(played ? Color.accentColor : Color.secondary.opacity(0.35))
-                        .frame(width: barWidth, height: height)
+                // Unplayed portion
+                SmoothWavePath(samples: samples, width: w, height: h)
+                    .stroke(Color.secondary.opacity(0.3), style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+                    .clipShape(Rectangle().offset(x: w * progress).size(width: w * (1 - progress), height: h))
+            } else {
+                // Placeholder center line
+                Path { path in
+                    path.move(to: CGPoint(x: 0, y: mid))
+                    path.addLine(to: CGPoint(x: w, y: mid))
                 }
+                .stroke(Color.secondary.opacity(0.2), lineWidth: 1.5)
             }
-            .frame(maxHeight: .infinity, alignment: .center)
-            .contentShape(Rectangle())
         }
+        .contentShape(Rectangle())
         .onAppear { loadSamples() }
     }
 
     private func loadSamples() {
         DispatchQueue.global(qos: .userInitiated).async {
-            let extracted = Self.extractSamples(from: audioURL, count: barCount)
+            let extracted = Self.extractSamples(from: audioURL, count: sampleCount)
             DispatchQueue.main.async {
                 self.samples = extracted
             }
@@ -46,10 +51,9 @@ struct WaveformView: View {
     static func extractSamples(from url: URL, count: Int) -> [Float] {
         guard let file = try? AVAudioFile(forReading: url) else { return [] }
 
-        let format = file.processingFormat
         let totalFrames = AVAudioFrameCount(file.length)
         guard totalFrames > 0,
-              let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: totalFrames)
+              let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: totalFrames)
         else { return [] }
 
         do {
@@ -61,7 +65,6 @@ struct WaveformView: View {
         guard let channelData = buffer.floatChannelData?[0] else { return [] }
         let frameCount = Int(buffer.frameLength)
 
-        // Downsample: split into `count` chunks, take peak amplitude of each
         var result = [Float](repeating: 0, count: count)
         let chunkSize = max(1, frameCount / count)
 
@@ -76,14 +79,55 @@ struct WaveformView: View {
             result[i] = peak
         }
 
-        // Normalize to 0...1
         let maxPeak = result.max() ?? 1
         if maxPeak > 0 {
             for i in 0..<count {
-                result[i] = max(0.05, result[i] / maxPeak) // min 5% height
+                result[i] = max(0.03, result[i] / maxPeak)
             }
         }
 
         return result
+    }
+}
+
+/// Draws a smooth Catmull-Rom spline through amplitude sample points.
+private struct SmoothWavePath: Shape {
+    let samples: [Float]
+    let width: CGFloat
+    let height: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        guard samples.count >= 2 else { return Path() }
+
+        let mid = height / 2
+        let points: [CGPoint] = samples.enumerated().map { i, amp in
+            let x = width * CGFloat(i) / CGFloat(samples.count - 1)
+            let y = mid - CGFloat(amp) * mid * 0.9 // scale to 90% of half-height
+            return CGPoint(x: x, y: y)
+        }
+
+        var path = Path()
+        path.move(to: points[0])
+
+        for i in 0..<points.count - 1 {
+            let p0 = i > 0 ? points[i - 1] : points[i]
+            let p1 = points[i]
+            let p2 = points[i + 1]
+            let p3 = i + 2 < points.count ? points[i + 2] : points[i + 1]
+
+            // Catmull-Rom to cubic Bezier control points
+            let cp1 = CGPoint(
+                x: p1.x + (p2.x - p0.x) / 6,
+                y: p1.y + (p2.y - p0.y) / 6
+            )
+            let cp2 = CGPoint(
+                x: p2.x - (p3.x - p1.x) / 6,
+                y: p2.y - (p3.y - p1.y) / 6
+            )
+
+            path.addCurve(to: p2, control1: cp1, control2: cp2)
+        }
+
+        return path
     }
 }

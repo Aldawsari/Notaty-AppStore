@@ -151,10 +151,9 @@ struct VoiceNoteView: View {
             if let url = audioURL {
                 WaveformView(
                     audioURL: url,
-                    progress: player.duration > 0 ? player.currentTime / player.duration : 0,
-                    barCount: 40
+                    progress: player.duration > 0 ? player.currentTime / player.duration : 0
                 )
-                .frame(height: 28)
+                .frame(height: 32)
                 .contentShape(Rectangle())
                 .overlay(
                     GeometryReader { geo in
