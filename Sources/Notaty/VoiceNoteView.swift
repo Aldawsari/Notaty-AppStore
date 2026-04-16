@@ -215,6 +215,9 @@ struct VoiceNoteView: View {
 
     private func startRecording() {
         guard let url = audioURL else { return }
+        // Suppress window dismiss BEFORE starting — the mic permission dialog
+        // may appear synchronously and trigger the outside-click monitor
+        appDelegate?.suppressDismiss = true
         recorder.startRecording(to: url)
     }
 
@@ -227,6 +230,8 @@ struct VoiceNoteView: View {
 
             if Settings.shared.autoTranscribe {
                 transcribeAudio()
+            } else {
+                appDelegate?.suppressDismiss = false
             }
         }
     }
@@ -234,6 +239,7 @@ struct VoiceNoteView: View {
     private func transcribeAudio() {
         guard let url = audioURL, FileManager.default.fileExists(atPath: url.path) else { return }
 
+        appDelegate?.suppressDismiss = true
         isTranscribing = true
         Task {
             do {
