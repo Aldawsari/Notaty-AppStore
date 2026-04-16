@@ -72,6 +72,10 @@ final class Settings: ObservableObject {
         }
     }
 
+    @Published var voiceNotesEnabled: Bool {
+        didSet { UserDefaults.standard.set(voiceNotesEnabled, forKey: Self.voiceNotesKey) }
+    }
+
     @Published var autoTranscribe: Bool {
         didSet { UserDefaults.standard.set(autoTranscribe, forKey: Self.autoTranscribeKey) }
     }
@@ -101,6 +105,7 @@ final class Settings: ObservableObject {
     private static let sizeKey = "defaultWindowSize"
     private static let themeKey = "appTheme"
     private static let launchKey = "launchAtLogin"
+    private static let voiceNotesKey = "voiceNotesEnabled"
     private static let autoTranscribeKey = "autoTranscribe"
     private static let langKey = "transcribeLanguage"
 
@@ -110,6 +115,10 @@ final class Settings: ObservableObject {
 
         let rawTheme = UserDefaults.standard.string(forKey: Self.themeKey) ?? ""
         self.theme = AppTheme(rawValue: rawTheme) ?? .system
+
+        self.voiceNotesEnabled = UserDefaults.standard.object(forKey: Self.voiceNotesKey) != nil
+            ? UserDefaults.standard.bool(forKey: Self.voiceNotesKey)
+            : false
 
         self.autoTranscribe = UserDefaults.standard.object(forKey: Self.autoTranscribeKey) != nil
             ? UserDefaults.standard.bool(forKey: Self.autoTranscribeKey)

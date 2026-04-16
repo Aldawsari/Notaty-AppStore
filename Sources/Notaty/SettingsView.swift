@@ -61,23 +61,32 @@ struct SettingsView: View {
                 sectionHeader("Voice Notes")
 
                 settingsCard {
-                    Toggle(isOn: $settings.autoTranscribe) {
-                        rowLabel("Auto-transcribe after recording")
+                    Toggle(isOn: $settings.voiceNotesEnabled) {
+                        rowLabel("Enable Voice Notes")
                     }
                     .toggleStyle(.switch)
 
-                    Divider()
+                    if settings.voiceNotesEnabled {
+                        Divider()
 
-                    HStack {
-                        rowLabel("Transcription Language")
-                        Spacer()
-                        Picker("", selection: $settings.transcribeLanguage) {
-                            ForEach(Settings.supportedLanguages, id: \.id) { lang in
-                                Text(lang.label).tag(lang.id)
-                            }
+                        Toggle(isOn: $settings.autoTranscribe) {
+                            rowLabel("Auto-transcribe after recording")
                         }
-                        .labelsHidden()
-                        .frame(width: 160)
+                        .toggleStyle(.switch)
+
+                        Divider()
+
+                        HStack {
+                            rowLabel("Transcription Language")
+                            Spacer()
+                            Picker("", selection: $settings.transcribeLanguage) {
+                                ForEach(Settings.supportedLanguages, id: \.id) { lang in
+                                    Text(lang.label).tag(lang.id)
+                                }
+                            }
+                            .labelsHidden()
+                            .frame(width: 160)
+                        }
                     }
                 }
 
