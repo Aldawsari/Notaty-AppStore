@@ -75,6 +75,11 @@ struct VoiceNoteView: View {
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .onAppear {
+            if !hasAudio && !recorder.isRecording {
+                startRecording()
+            }
+        }
         .onDisappear {
             if recorder.isRecording {
                 _ = recorder.stopRecording()
