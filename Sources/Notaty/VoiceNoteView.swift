@@ -147,29 +147,30 @@ struct VoiceNoteView: View {
             .buttonStyle(.plain)
             .help(player.isPlaying ? "Pause" : "Play")
 
-            // Progress bar
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(Color.secondary.opacity(0.3))
-                        .frame(height: 4)
-
-                    let progress = player.duration > 0 ? player.currentTime / player.duration : 0
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(Color.accentColor)
-                        .frame(width: geo.size.width * CGFloat(progress), height: 4)
-                }
-                .frame(maxHeight: .infinity, alignment: .center)
+            // Waveform
+            if let url = audioURL {
+                WaveformView(
+                    audioURL: url,
+                    progress: player.duration > 0 ? player.currentTime / player.duration : 0,
+                    barCount: 40
+                )
+                .frame(height: 28)
                 .contentShape(Rectangle())
-                .gesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { value in
-                            let ratio = max(0, min(1, value.location.x / geo.size.width))
-                            player.seek(to: ratio * player.duration)
-                        }
+                .overlay(
+                    GeometryReader { geo in
+                        Color.clear
+                            .contentShape(Rectangle())
+                            .gesture(
+                                DragGesture(minimumDistance: 0)
+                                    .onChanged { value in
+                                        guard player.duration > 0 else { return }
+                                        let ratio = max(0, min(1, value.location.x / geo.size.width))
+                                        player.seek(to: ratio * player.duration)
+                                    }
+                            )
+                    }
                 )
             }
-            .frame(height: 20)
 
             Text(formatTime(player.duration))
                 .font(.system(size: 11, design: .monospaced))
