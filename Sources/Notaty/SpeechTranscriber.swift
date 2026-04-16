@@ -11,34 +11,72 @@ final class SpeechTranscriber {
 
     private static var whisperKit: WhisperKit?
 
-    /// Detect language with WhisperKit (bundled model), then transcribe with Apple SFSpeechRecognizer.
+    /// Hybrid transcription: WhisperKit detects language, Apple transcribes.
+    /// Falls back to trying both Arabic + English if detection is uncertain.
     static func transcribe(audioURL: URL) async throws -> String {
-        // 1. Detect language using bundled WhisperKit tiny model
-        if whisperKit == nil {
-            let modelPath = bundledModelPath()
-            if let modelPath {
-                let config = WhisperKitConfig(modelFolder: modelPath)
-                whisperKit = try await WhisperKit(config)
-            } else {
-                // Fallback: download if bundled model not found
-                whisperKit = try await WhisperKit(WhisperKitConfig(model: "tiny"))
+        // Ensure speech recognition permission
+        let status = SFSpeechRecognizer.authorizationStatus()
+        if status != .authorized {
+            let granted = await withCheckedContinuation { cont in
+                SFSpeechRecognizer.requestAuthorization { s in
+                    cont.resume(returning: s == .authorized)
+                }
             }
+            if !granted { throw TranscribeError.notAuthorized }
         }
 
-        var locale = Locale(identifier: "en-US")
-        if let pipe = whisperKit {
-            let langResult = try await pipe.detectLanguage(audioPath: audioURL.path)
-            let lang = langResult.language
-            locale = mapToLocale(lang)
+        // 1. Try language detection with WhisperKit
+        let detectedLang = await detectLanguage(audioURL: audioURL)
+
+        if let lang = detectedLang, lang != "ar" {
+            // Confident it's not Arabic — transcribe with detected language
+            return try await transcribeWithApple(audioURL: audioURL, locale: mapToLocale(lang))
         }
 
-        // 2. Transcribe with SFSpeechRecognizer using detected locale
-        return try await transcribeWithApple(audioURL: audioURL, locale: locale)
+        // 2. If detected Arabic OR detection failed/uncertain — try both
+        //    Run Arabic and English in parallel, pick the better result
+        async let arResult = tryTranscribe(audioURL: audioURL, locale: Locale(identifier: "ar-SA"))
+        async let enResult = tryTranscribe(audioURL: audioURL, locale: Locale(identifier: "en-US"))
+
+        let ar = await arResult
+        let en = await enResult
+
+        switch (ar, en) {
+        case (.success(let arText), .success(let enText)):
+            // If WhisperKit said Arabic, trust it
+            if detectedLang == "ar" { return arText }
+            // Otherwise pick the longer result (usually more meaningful)
+            return arText.count >= enText.count ? arText : enText
+        case (.success(let text), .failure):
+            return text
+        case (.failure, .success(let text)):
+            return text
+        case (.failure(let err), .failure):
+            throw err
+        }
+    }
+
+    /// Detect language using bundled WhisperKit model. Returns nil if detection fails.
+    private static func detectLanguage(audioURL: URL) async -> String? {
+        do {
+            if whisperKit == nil {
+                if let modelPath = bundledModelPath() {
+                    let config = WhisperKitConfig(modelFolder: modelPath)
+                    whisperKit = try await WhisperKit(config)
+                } else {
+                    whisperKit = try await WhisperKit(WhisperKitConfig(model: "tiny"))
+                }
+            }
+            guard let pipe = whisperKit else { return nil }
+            let result = try await pipe.detectLanguage(audioPath: audioURL.path)
+            return result.language
+        } catch {
+            return nil
+        }
     }
 
     /// Look for the bundled model inside the app's Resources directory.
     private static func bundledModelPath() -> String? {
-        // In .app bundle: Contents/Resources/Models/openai_whisper-tiny
         if let resourcePath = Bundle.main.resourcePath {
             let path = (resourcePath as NSString).appendingPathComponent("Models/openai_whisper-tiny")
             if FileManager.default.fileExists(atPath: path) {
@@ -48,45 +86,29 @@ final class SpeechTranscriber {
         return nil
     }
 
-    /// Map Whisper language code (e.g. "ar", "en") to an SFSpeechRecognizer locale.
+    /// Try transcription, returning Result instead of throwing.
+    private static func tryTranscribe(audioURL: URL, locale: Locale) async -> Result<String, Error> {
+        do {
+            let text = try await transcribeWithApple(audioURL: audioURL, locale: locale)
+            return .success(text)
+        } catch {
+            return .failure(error)
+        }
+    }
+
+    /// Map Whisper language code to an SFSpeechRecognizer locale.
     private static func mapToLocale(_ lang: String) -> Locale {
         let mapping: [String: String] = [
-            "ar": "ar-SA",
-            "en": "en-US",
-            "fr": "fr-FR",
-            "de": "de-DE",
-            "es": "es-ES",
-            "it": "it-IT",
-            "pt": "pt-BR",
-            "tr": "tr-TR",
-            "ru": "ru-RU",
-            "ja": "ja-JP",
-            "ko": "ko-KR",
-            "zh": "zh-CN",
-            "hi": "hi-IN",
-            "ur": "ur-PK",
-            "nl": "nl-NL",
-            "pl": "pl-PL",
+            "ar": "ar-SA", "en": "en-US", "fr": "fr-FR", "de": "de-DE",
+            "es": "es-ES", "it": "it-IT", "pt": "pt-BR", "tr": "tr-TR",
+            "ru": "ru-RU", "ja": "ja-JP", "ko": "ko-KR", "zh": "zh-CN",
+            "hi": "hi-IN", "ur": "ur-PK", "nl": "nl-NL", "pl": "pl-PL",
         ]
-        let identifier = mapping[lang] ?? "en-US"
-        return Locale(identifier: identifier)
+        return Locale(identifier: mapping[lang] ?? "en-US")
     }
 
     /// Transcribe using Apple's SFSpeechRecognizer with a specific locale.
     private static func transcribeWithApple(audioURL: URL, locale: Locale) async throws -> String {
-        // Request permission if needed
-        let status = SFSpeechRecognizer.authorizationStatus()
-        if status != .authorized {
-            let granted = await withCheckedContinuation { cont in
-                SFSpeechRecognizer.requestAuthorization { status in
-                    cont.resume(returning: status == .authorized)
-                }
-            }
-            if !granted {
-                throw TranscribeError.notAuthorized
-            }
-        }
-
         guard let recognizer = SFSpeechRecognizer(locale: locale), recognizer.isAvailable else {
             throw TranscribeError.notAvailable
         }
