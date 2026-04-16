@@ -67,6 +67,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         newNoteItem.target = self
         fileMenu.addItem(newNoteItem)
+        let newVoiceItem = NSMenuItem(
+            title: "New Voice Note",
+            action: #selector(newVoiceNote),
+            keyEquivalent: "n"
+        )
+        newVoiceItem.keyEquivalentModifierMask = [.command, .shift]
+        newVoiceItem.target = self
+        fileMenu.addItem(newVoiceItem)
         let switcherItem = NSMenuItem(
             title: "Quick Switcher…",
             action: #selector(openQuickSwitcher),
@@ -163,6 +171,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let newItem = NSMenuItem(title: "New Note", action: #selector(newNote), keyEquivalent: "t")
         newItem.target = self
         menu.addItem(newItem)
+        let voiceItem = NSMenuItem(title: "New Voice Note", action: #selector(newVoiceNote), keyEquivalent: "")
+        voiceItem.target = self
+        menu.addItem(voiceItem)
         menu.addItem(NSMenuItem.separator())
         menu.addItem(
             withTitle: "Quit Notaty",
@@ -369,6 +380,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func newNote() {
         NotesStore.shared.addNote()
+        guard let window = windowController.window else { return }
+        if !window.isVisible {
+            NSApp.activate(ignoringOtherApps: true)
+            positionUnderStatusItem(window)
+            window.makeKeyAndOrderFront(nil)
+        }
+    }
+
+    @objc func newVoiceNote() {
+        NotesStore.shared.addVoiceNote()
         guard let window = windowController.window else { return }
         if !window.isVisible {
             NSApp.activate(ignoringOtherApps: true)

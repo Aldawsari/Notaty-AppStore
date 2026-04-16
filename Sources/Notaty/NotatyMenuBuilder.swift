@@ -14,6 +14,14 @@ enum NotatyMenuBuilder {
 
         menu.addItem(NSMenuItem.separator())
 
+        let voiceNoteItem = NSMenuItem(
+            title: "New Voice Note",
+            action: #selector(AppDelegate.newVoiceNote),
+            keyEquivalent: ""
+        )
+        menu.addItem(voiceNoteItem)
+        menu.addItem(NSMenuItem.separator())
+
         let saveItem = NSMenuItem(
             title: "Save As…",
             action: #selector(AppDelegate.saveAs),
