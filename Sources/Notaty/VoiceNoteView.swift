@@ -6,6 +6,8 @@ struct VoiceNoteView: View {
     @StateObject private var recorder = AudioRecorder()
     @StateObject private var player = AudioPlayer()
     @State private var isTranscribing = false
+    @State private var transcriptionText = ""
+    @State private var showTranscription = false
 
     private var note: Note? {
         store.note(for: noteID)
@@ -23,6 +25,11 @@ struct VoiceNoteView: View {
 
     private var appDelegate: AppDelegate? {
         NSApp.delegate as? AppDelegate
+    }
+
+    private var transcriptionDirection: LayoutDirection {
+        let direction = NoteTextEditor.resolveDirection(mode: .auto, text: transcriptionText)
+        return direction == .rightToLeft ? .rightToLeft : .leftToRight
     }
 
     private var layoutDirection: LayoutDirection {
@@ -54,10 +61,9 @@ struct VoiceNoteView: View {
                 readyToRecordBar
             }
 
-            Divider()
-
             // Transcribing indicator
             if isTranscribing {
+                Divider()
                 HStack(spacing: 8) {
                     ProgressView()
                         .scaleEffect(0.8)
@@ -68,16 +74,25 @@ struct VoiceNoteView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)
                 .padding(.horizontal, 12)
-
-                Divider()
             }
 
-            // Transcription text editor
-            NoteTextEditor(
-                text: store.textBinding(for: noteID),
-                directionMode: note?.direction ?? .auto
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Transcription text (toggle on/off)
+            if showTranscription && !transcriptionText.isEmpty {
+                Divider()
+                ScrollView {
+                    Text(transcriptionText)
+                        .font(.system(size: 13))
+                        .foregroundColor(.primary)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                        .environment(\.layoutDirection, transcriptionDirection)
+                }
+                .frame(maxHeight: 200)
+                .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+            }
+
+            Spacer(minLength: 0)
         }
         .onAppear {
             if !hasAudio && !recorder.isRecording {
@@ -175,15 +190,15 @@ struct VoiceNoteView: View {
                 .font(.system(size: 11, design: .monospaced))
                 .foregroundColor(.secondary)
 
-            // Transcribe button — shown when there's audio but no transcription yet
-            if !isTranscribing && (note?.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                Button(action: transcribeAudio) {
-                    Image(systemName: "text.badge.plus")
+            // Transcribe toggle button
+            if !isTranscribing {
+                Button(action: toggleTranscription) {
+                    Image(systemName: showTranscription ? "text.badge.minus" : "text.badge.plus")
                         .font(.system(size: 14))
-                        .foregroundColor(.accentColor)
+                        .foregroundColor(showTranscription ? .secondary : .accentColor)
                 }
                 .buttonStyle(.plain)
-                .help("Transcribe")
+                .help(showTranscription ? "Hide transcription" : "Transcribe")
             }
         }
         .padding(.horizontal, 12)
@@ -229,10 +244,23 @@ struct VoiceNoteView: View {
             player.load(url: url)
 
             if Settings.shared.autoTranscribe {
-                transcribeAudio()
+                toggleTranscription()
             } else {
                 appDelegate?.suppressDismiss = false
             }
+        }
+    }
+
+    private func toggleTranscription() {
+        if showTranscription {
+            // Hide
+            showTranscription = false
+        } else if !transcriptionText.isEmpty {
+            // Already transcribed — just show
+            showTranscription = true
+        } else {
+            // Need to transcribe first
+            transcribeAudio()
         }
     }
 
@@ -241,17 +269,19 @@ struct VoiceNoteView: View {
 
         appDelegate?.suppressDismiss = true
         isTranscribing = true
+        showTranscription = true
         Task {
             do {
                 let text = try await SpeechTranscriber.transcribe(audioURL: url)
                 await MainActor.run {
-                    store.update(id: noteID) { $0.text = text }
+                    transcriptionText = text
                     isTranscribing = false
                 }
             } catch {
                 await MainActor.run {
                     print("Transcription error: \(error)")
                     isTranscribing = false
+                    showTranscription = false
                 }
             }
         }
