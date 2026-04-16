@@ -9,11 +9,74 @@ final class SpeechTranscriber {
         case notAuthorized
     }
 
-    private static var whisperKit: WhisperKit?
+    private static var whisperTiny: WhisperKit?
+    private static var whisperLarge: WhisperKit?
 
-    /// Hybrid transcription: WhisperKit detects language, Apple transcribes.
-    /// Falls back to trying both Arabic + English if detection is uncertain.
+    // MARK: - Public API
+
+    /// Transcribe audio file. Uses enhanced (WhisperKit large) or standard (Apple) mode.
     static func transcribe(audioURL: URL) async throws -> String {
+        if Settings.shared.enhancedTranscription, Settings.shared.enhancedModelReady {
+            return try await transcribeWithWhisperLarge(audioURL: audioURL)
+        } else {
+            return try await transcribeStandard(audioURL: audioURL)
+        }
+    }
+
+    /// Download the large Whisper model for enhanced transcription. Reports progress.
+    static func downloadEnhancedModel(onProgress: @escaping (String) -> Void) async throws {
+        onProgress("Downloading model...")
+        let config = WhisperKitConfig(model: "large-v3-v20240930_turbo")
+        whisperLarge = try await WhisperKit(config)
+        await MainActor.run {
+            Settings.shared.enhancedModelReady = true
+        }
+        onProgress("Ready")
+    }
+
+    /// Check if the large model is already cached locally.
+    static func checkEnhancedModelCached() -> Bool {
+        let cacheDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?
+            .deletingLastPathComponent()
+            .appendingPathComponent("Documents/huggingface/models/argmaxinc/whisperkit-coreml/openai_whisper-large-v3-v20240930_turbo")
+        if let path = cacheDir?.path, FileManager.default.fileExists(atPath: path) {
+            return true
+        }
+        // Also check the default HF cache paths
+        let homePaths = [
+            NSHomeDirectory() + "/Documents/huggingface/models/argmaxinc/whisperkit-coreml/openai_whisper-large-v3-v20240930_turbo",
+            NSHomeDirectory() + "/Documents/huggingface/models/argmaxinc/whisperkit-coreml/openai_whisper-large-v3-v20240930_626MB",
+        ]
+        for p in homePaths {
+            if FileManager.default.fileExists(atPath: p) { return true }
+        }
+        return false
+    }
+
+    // MARK: - Enhanced Mode (WhisperKit large)
+
+    /// Transcribe using WhisperKit large model — handles mixed languages natively.
+    private static func transcribeWithWhisperLarge(audioURL: URL) async throws -> String {
+        if whisperLarge == nil {
+            // Try to load from cache
+            let config = WhisperKitConfig(model: "large-v3-v20240930_turbo")
+            whisperLarge = try await WhisperKit(config)
+        }
+        guard let pipe = whisperLarge else {
+            throw TranscribeError.failed("Enhanced model not available")
+        }
+
+        let results = try await pipe.transcribe(audioPath: audioURL.path)
+        let text = results.map(\.text).joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if text.isEmpty { throw TranscribeError.failed("No speech detected") }
+        return text
+    }
+
+    // MARK: - Standard Mode (WhisperKit tiny detect + Apple transcribe)
+
+    /// Standard: detect language with WhisperKit tiny, transcribe with Apple.
+    private static func transcribeStandard(audioURL: URL) async throws -> String {
         // Ensure speech recognition permission
         let status = SFSpeechRecognizer.authorizationStatus()
         if status != .authorized {
@@ -25,16 +88,13 @@ final class SpeechTranscriber {
             if !granted { throw TranscribeError.notAuthorized }
         }
 
-        // 1. Try language detection with WhisperKit
         let detectedLang = await detectLanguage(audioURL: audioURL)
 
         if let lang = detectedLang, lang != "ar" {
-            // Confident it's not Arabic — transcribe with detected language
             return try await transcribeWithApple(audioURL: audioURL, locale: mapToLocale(lang))
         }
 
-        // 2. If detected Arabic OR detection failed/uncertain — try both
-        //    Run Arabic and English in parallel, pick the better result
+        // Arabic or uncertain — try both
         async let arResult = tryTranscribe(audioURL: audioURL, locale: Locale(identifier: "ar-SA"))
         async let enResult = tryTranscribe(audioURL: audioURL, locale: Locale(identifier: "en-US"))
 
@@ -43,9 +103,7 @@ final class SpeechTranscriber {
 
         switch (ar, en) {
         case (.success(let arText), .success(let enText)):
-            // If WhisperKit said Arabic, trust it
             if detectedLang == "ar" { return arText }
-            // Otherwise pick the longer result (usually more meaningful)
             return arText.count >= enText.count ? arText : enText
         case (.success(let text), .failure):
             return text
@@ -56,18 +114,19 @@ final class SpeechTranscriber {
         }
     }
 
-    /// Detect language using bundled WhisperKit model. Returns nil if detection fails.
+    // MARK: - Language Detection
+
     private static func detectLanguage(audioURL: URL) async -> String? {
         do {
-            if whisperKit == nil {
+            if whisperTiny == nil {
                 if let modelPath = bundledModelPath() {
                     let config = WhisperKitConfig(modelFolder: modelPath)
-                    whisperKit = try await WhisperKit(config)
+                    whisperTiny = try await WhisperKit(config)
                 } else {
-                    whisperKit = try await WhisperKit(WhisperKitConfig(model: "tiny"))
+                    whisperTiny = try await WhisperKit(WhisperKitConfig(model: "tiny"))
                 }
             }
-            guard let pipe = whisperKit else { return nil }
+            guard let pipe = whisperTiny else { return nil }
             let result = try await pipe.detectLanguage(audioPath: audioURL.path)
             return result.language
         } catch {
@@ -75,28 +134,24 @@ final class SpeechTranscriber {
         }
     }
 
-    /// Look for the bundled model inside the app's Resources directory.
     private static func bundledModelPath() -> String? {
         if let resourcePath = Bundle.main.resourcePath {
             let path = (resourcePath as NSString).appendingPathComponent("Models/openai_whisper-tiny")
-            if FileManager.default.fileExists(atPath: path) {
-                return path
-            }
+            if FileManager.default.fileExists(atPath: path) { return path }
         }
         return nil
     }
 
-    /// Try transcription, returning Result instead of throwing.
+    // MARK: - Apple Transcription
+
     private static func tryTranscribe(audioURL: URL, locale: Locale) async -> Result<String, Error> {
         do {
-            let text = try await transcribeWithApple(audioURL: audioURL, locale: locale)
-            return .success(text)
+            return .success(try await transcribeWithApple(audioURL: audioURL, locale: locale))
         } catch {
             return .failure(error)
         }
     }
 
-    /// Map Whisper language code to an SFSpeechRecognizer locale.
     private static func mapToLocale(_ lang: String) -> Locale {
         let mapping: [String: String] = [
             "ar": "ar-SA", "en": "en-US", "fr": "fr-FR", "de": "de-DE",
@@ -107,7 +162,6 @@ final class SpeechTranscriber {
         return Locale(identifier: mapping[lang] ?? "en-US")
     }
 
-    /// Transcribe using Apple's SFSpeechRecognizer with a specific locale.
     private static func transcribeWithApple(audioURL: URL, locale: Locale) async throws -> String {
         guard let recognizer = SFSpeechRecognizer(locale: locale), recognizer.isAvailable else {
             throw TranscribeError.notAvailable

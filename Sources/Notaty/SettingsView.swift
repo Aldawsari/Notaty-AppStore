@@ -65,10 +65,10 @@ struct SettingsView: View {
                         rowLabel("Auto-transcribe after recording")
                     }
                     .toggleStyle(.switch)
+                }
 
-                    Text("Transcription uses WhisperKit with automatic language detection.")
-                        .font(.system(size: 11))
-                        .foregroundColor(.secondary)
+                settingsCard {
+                    EnhancedTranscriptionSection(settings: settings)
                 }
 
                 // ── Data ─────────────────────────────────────────────────
@@ -203,5 +203,80 @@ struct SettingsView: View {
         Text(text)
             .font(.system(size: 13))
             .foregroundColor(.primary)
+    }
+}
+
+// MARK: - Enhanced Transcription Section
+
+private struct EnhancedTranscriptionSection: View {
+    @ObservedObject var settings: Settings
+    @State private var isDownloading = false
+    @State private var statusText = ""
+
+    var body: some View {
+        Toggle(isOn: $settings.enhancedTranscription) {
+            Text("Enhanced Transcription")
+                .font(.system(size: 13))
+        }
+        .toggleStyle(.switch)
+        .onChange(of: settings.enhancedTranscription) { enabled in
+            if enabled && !settings.enhancedModelReady {
+                downloadModel()
+            }
+        }
+
+        Text("Uses a larger AI model (~600 MB download, one-time) for better accuracy, mixed-language support (e.g. Arabic + English in the same sentence), and more languages.")
+            .font(.system(size: 11))
+            .foregroundColor(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+
+        if settings.enhancedTranscription {
+            if isDownloading {
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text(statusText.isEmpty ? "Downloading model..." : statusText)
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                }
+            } else if settings.enhancedModelReady {
+                HStack(spacing: 4) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                        .font(.system(size: 12))
+                    Text("Model ready")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+    }
+
+    private func downloadModel() {
+        // Check if already cached
+        if SpeechTranscriber.checkEnhancedModelCached() {
+            settings.enhancedModelReady = true
+            return
+        }
+
+        isDownloading = true
+        Task {
+            do {
+                try await SpeechTranscriber.downloadEnhancedModel { progress in
+                    Task { @MainActor in
+                        statusText = progress
+                    }
+                }
+                await MainActor.run {
+                    isDownloading = false
+                }
+            } catch {
+                await MainActor.run {
+                    isDownloading = false
+                    settings.enhancedTranscription = false
+                    statusText = "Download failed: \(error.localizedDescription)"
+                }
+            }
+        }
     }
 }

@@ -76,38 +76,18 @@ final class Settings: ObservableObject {
         didSet { UserDefaults.standard.set(autoTranscribe, forKey: Self.autoTranscribeKey) }
     }
 
-    @Published var transcribeLang1: String {
-        didSet { UserDefaults.standard.set(transcribeLang1, forKey: Self.lang1Key) }
+    @Published var enhancedTranscription: Bool {
+        didSet { UserDefaults.standard.set(enhancedTranscription, forKey: Self.enhancedKey) }
     }
 
-    @Published var transcribeLang2: String {
-        didSet { UserDefaults.standard.set(transcribeLang2, forKey: Self.lang2Key) }
-    }
-
-    static let supportedLanguages: [(id: String, label: String)] = [
-        ("ar-SA", "Arabic"),
-        ("en-US", "English (US)"),
-        ("en-GB", "English (UK)"),
-        ("fr-FR", "French"),
-        ("de-DE", "German"),
-        ("es-ES", "Spanish"),
-        ("it-IT", "Italian"),
-        ("pt-BR", "Portuguese"),
-        ("tr-TR", "Turkish"),
-        ("ru-RU", "Russian"),
-        ("ja-JP", "Japanese"),
-        ("ko-KR", "Korean"),
-        ("zh-CN", "Chinese (Simplified)"),
-        ("hi-IN", "Hindi"),
-        ("ur-PK", "Urdu"),
-    ]
+    /// Whether the large Whisper model has been downloaded and cached.
+    @Published var enhancedModelReady: Bool = false
 
     private static let sizeKey = "defaultWindowSize"
     private static let themeKey = "appTheme"
     private static let launchKey = "launchAtLogin"
     private static let autoTranscribeKey = "autoTranscribe"
-    private static let lang1Key = "transcribeLang1"
-    private static let lang2Key = "transcribeLang2"
+    private static let enhancedKey = "enhancedTranscription"
 
     private init() {
         let rawSize = UserDefaults.standard.string(forKey: Self.sizeKey) ?? ""
@@ -119,8 +99,7 @@ final class Settings: ObservableObject {
         self.autoTranscribe = UserDefaults.standard.object(forKey: Self.autoTranscribeKey) != nil
             ? UserDefaults.standard.bool(forKey: Self.autoTranscribeKey)
             : false
-        self.transcribeLang1 = UserDefaults.standard.string(forKey: Self.lang1Key) ?? "ar-SA"
-        self.transcribeLang2 = UserDefaults.standard.string(forKey: Self.lang2Key) ?? "en-US"
+        self.enhancedTranscription = UserDefaults.standard.bool(forKey: Self.enhancedKey)
 
         // Default to ON if never set
         if UserDefaults.standard.object(forKey: Self.launchKey) == nil {
