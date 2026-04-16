@@ -88,11 +88,18 @@ struct VoiceNoteView: View {
                         .padding(12)
                         .environment(\.layoutDirection, transcriptionDirection)
                 }
-                .frame(maxHeight: 200)
+                .frame(maxHeight: 150)
                 .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
             }
 
-            Spacer(minLength: 0)
+            Divider()
+
+            // Text editor for notes
+            NoteTextEditor(
+                text: store.textBinding(for: noteID),
+                directionMode: note?.direction ?? .auto
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .onAppear {
             if !hasAudio && !recorder.isRecording {
