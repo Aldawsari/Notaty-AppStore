@@ -5,15 +5,15 @@ import AVFoundation
 struct WaveformView: View {
     let audioURL: URL
     let progress: Double // 0...1
-    let barCount: Int
+    var barCount: Int = 60
 
     @State private var samples: [Float] = []
 
     var body: some View {
         GeometryReader { geo in
             let count = samples.isEmpty ? barCount : samples.count
-            let spacing: CGFloat = 2.5
-            let barWidth = max(2, (geo.size.width - spacing * CGFloat(count - 1)) / CGFloat(count))
+            let spacing: CGFloat = 1.5
+            let barWidth = max(1.5, (geo.size.width - spacing * CGFloat(count - 1)) / CGFloat(count))
             let maxHeight = geo.size.height
 
             HStack(alignment: .center, spacing: spacing) {
