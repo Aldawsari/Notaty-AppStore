@@ -8,18 +8,24 @@ final class SpeechTranscriber {
 
     private static var whisperKit: WhisperKit?
 
-    /// Transcribe audio file using WhisperKit (on-device, auto language detection).
+    /// Transcribe audio file using WhisperKit with a multilingual model.
     static func transcribe(audioURL: URL) async throws -> String {
-        // Reuse the pipeline if already loaded, otherwise initialize
         if whisperKit == nil {
-            whisperKit = try await WhisperKit()
+            // Use large-v3 turbo for best multilingual accuracy (Arabic + English)
+            whisperKit = try await WhisperKit(model: "large-v3-v20240930_turbo")
         }
 
         guard let pipe = whisperKit else {
             throw TranscribeError.failed("Failed to initialize WhisperKit")
         }
 
-        let results = try await pipe.transcribe(audioPath: audioURL.path)
+        // Detect language first
+        let langResult = try await pipe.detectLanguage(audioPath: audioURL.path)
+        let detectedLang = langResult.language
+
+        // Transcribe with detected language
+        let options = DecodingOptions(language: detectedLang)
+        let results = try await pipe.transcribe(audioPath: audioURL.path, decodeOptions: options)
 
         let text = results.map(\.text).joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
 
