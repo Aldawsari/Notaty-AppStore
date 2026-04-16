@@ -58,7 +58,7 @@ final class NotesStore: ObservableObject {
         let id = UUID()
         let note = Note(
             id: id,
-            title: "ملاحظة صوتية \(timestamp)",
+            title: "Voice Note \(timestamp)",
             text: "",
             type: .voice,
             audioFilename: "\(id.uuidString).m4a"
