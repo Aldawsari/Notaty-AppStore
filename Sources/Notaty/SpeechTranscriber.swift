@@ -23,15 +23,27 @@ final class SpeechTranscriber {
         }
     }
 
-    /// Download the large Whisper model for enhanced transcription. Reports progress.
-    static func downloadEnhancedModel(onProgress: @escaping (String) -> Void) async throws {
-        onProgress("Downloading model...")
-        let config = WhisperKitConfig(model: "large-v3-v20240930_turbo")
+    /// Download the large Whisper model for enhanced transcription. Reports progress (0.0–1.0).
+    static func downloadEnhancedModel(onProgress: @escaping (Double) -> Void) async throws {
+        let modelName = "large-v3-v20240930_turbo"
+
+        // Download with progress callback
+        let modelFolder = try await WhisperKit.download(
+            variant: modelName,
+            progressCallback: { progress in
+                Task { @MainActor in
+                    onProgress(progress.fractionCompleted)
+                }
+            }
+        )
+
+        // Initialize the pipeline from downloaded model
+        let config = WhisperKitConfig(modelFolder: modelFolder.path)
         whisperLarge = try await WhisperKit(config)
         await MainActor.run {
             Settings.shared.enhancedModelReady = true
+            onProgress(1.0)
         }
-        onProgress("Ready")
     }
 
     /// Check if the large model is already cached locally.

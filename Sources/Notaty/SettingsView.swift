@@ -211,7 +211,8 @@ struct SettingsView: View {
 private struct EnhancedTranscriptionSection: View {
     @ObservedObject var settings: Settings
     @State private var isDownloading = false
-    @State private var statusText = ""
+    @State private var downloadProgress: Double = 0
+    @State private var errorText = ""
 
     var body: some View {
         Toggle(isOn: $settings.enhancedTranscription) {
@@ -219,6 +220,7 @@ private struct EnhancedTranscriptionSection: View {
                 .font(.system(size: 13))
         }
         .toggleStyle(.switch)
+        .disabled(isDownloading)
         .onChange(of: settings.enhancedTranscription) { enabled in
             if enabled && !settings.enhancedModelReady {
                 downloadModel()
@@ -232,12 +234,19 @@ private struct EnhancedTranscriptionSection: View {
 
         if settings.enhancedTranscription {
             if isDownloading {
-                HStack(spacing: 8) {
-                    ProgressView()
-                        .controlSize(.small)
-                    Text(statusText.isEmpty ? "Downloading model..." : statusText)
-                        .font(.system(size: 11))
-                        .foregroundColor(.secondary)
+                VStack(alignment: .leading, spacing: 6) {
+                    ProgressView(value: downloadProgress)
+                        .progressViewStyle(.linear)
+
+                    HStack {
+                        Text("Downloading model...")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text("\(Int(downloadProgress * 100))%")
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundColor(.secondary)
+                    }
                 }
             } else if settings.enhancedModelReady {
                 HStack(spacing: 4) {
@@ -250,21 +259,29 @@ private struct EnhancedTranscriptionSection: View {
                 }
             }
         }
+
+        if !errorText.isEmpty {
+            Text(errorText)
+                .font(.system(size: 11))
+                .foregroundColor(.red)
+        }
     }
 
     private func downloadModel() {
-        // Check if already cached
         if SpeechTranscriber.checkEnhancedModelCached() {
             settings.enhancedModelReady = true
             return
         }
 
         isDownloading = true
+        downloadProgress = 0
+        errorText = ""
+
         Task {
             do {
                 try await SpeechTranscriber.downloadEnhancedModel { progress in
                     Task { @MainActor in
-                        statusText = progress
+                        downloadProgress = progress
                     }
                 }
                 await MainActor.run {
@@ -274,7 +291,7 @@ private struct EnhancedTranscriptionSection: View {
                 await MainActor.run {
                     isDownloading = false
                     settings.enhancedTranscription = false
-                    statusText = "Download failed: \(error.localizedDescription)"
+                    errorText = "Download failed: \(error.localizedDescription)"
                 }
             }
         }
