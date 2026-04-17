@@ -319,7 +319,7 @@ struct VoiceNoteView: View {
 
     private func copyTranscriptionToNote() {
         let separator = "━━━━━━━━━━━━━━━━━━━━"
-        let block = "\(separator)\n🎙 Transcription\n\(separator)\n\(transcriptionText)\n\(separator)\n\n"
+        let block = "\(separator)\n🎙✍️ Transcription\n\(separator)\n\(transcriptionText)\n\(separator)\n\n"
         store.update(id: noteID) {
             $0.text = block + $0.text
         }
