@@ -87,6 +87,16 @@ struct VoiceNoteView: View {
                         Text("Voice Transcription")
                             .font(.system(size: 10, weight: .medium))
                             .foregroundColor(.secondary)
+
+                        Spacer()
+
+                        Button(action: copyTranscriptionToNote) {
+                            Image(systemName: "doc.on.clipboard")
+                                .font(.system(size: 11))
+                                .foregroundColor(.accentColor)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Copy to note")
                     }
 
                     Text(transcriptionText)
@@ -304,6 +314,14 @@ struct VoiceNoteView: View {
                     showTranscription = false
                 }
             }
+        }
+    }
+
+    private func copyTranscriptionToNote() {
+        let separator = "━━━━━━━━━━━━━━━━━━━━"
+        let block = "\(separator)\n🎙 Transcription\n\(separator)\n\(transcriptionText)\n\(separator)\n\n"
+        store.update(id: noteID) {
+            $0.text = block + $0.text
         }
     }
 
