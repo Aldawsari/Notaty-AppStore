@@ -93,7 +93,7 @@ struct VoiceNoteView: View {
                         Button(action: copyTranscriptionToNote) {
                             Image(systemName: "square.and.pencil")
                                 .font(.system(size: 11))
-                                .foregroundColor(.accentColor)
+                                .foregroundColor(.secondary)
                         }
                         .buttonStyle(.plain)
                         .help("Copy to note")
