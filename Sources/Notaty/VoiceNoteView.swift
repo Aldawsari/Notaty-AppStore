@@ -91,7 +91,7 @@ struct VoiceNoteView: View {
                         Spacer()
 
                         Button(action: copyTranscriptionToNote) {
-                            Image(systemName: "doc.on.clipboard")
+                            Image(systemName: "square.and.pencil")
                                 .font(.system(size: 11))
                                 .foregroundColor(.accentColor)
                         }
