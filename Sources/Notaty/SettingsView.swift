@@ -69,13 +69,6 @@ struct SettingsView: View {
                     if settings.voiceNotesEnabled {
                         Divider()
 
-                        Toggle(isOn: $settings.autoTranscribe) {
-                            rowLabel("Auto-transcribe after recording")
-                        }
-                        .toggleStyle(.switch)
-
-                        Divider()
-
                         HStack {
                             rowLabel("Transcription Language")
                             Spacer()
