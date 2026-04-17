@@ -76,17 +76,33 @@ struct VoiceNoteView: View {
                 .padding(.horizontal, 12)
             }
 
-            // Transcription text (toggle on/off)
+            // Transcription bubble (toggle on/off)
             if showTranscription && !transcriptionText.isEmpty {
                 Divider()
-                Text(transcriptionText)
-                    .font(.system(size: 13))
-                    .foregroundColor(.primary)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(12)
-                    .environment(\.layoutDirection, transcriptionDirection)
-                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 5) {
+                        Image(systemName: "mic.fill")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
+                        Text("Voice Transcription")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.secondary)
+                    }
+
+                    Text(transcriptionText)
+                        .font(.system(size: 13))
+                        .foregroundColor(.primary)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .environment(\.layoutDirection, transcriptionDirection)
+                }
+                .padding(12)
+                .background(
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(Color.primary.opacity(0.06))
+                )
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
             }
 
             Divider()
