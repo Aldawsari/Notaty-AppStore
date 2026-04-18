@@ -57,6 +57,39 @@ struct SettingsView: View {
                     .frame(maxWidth: .infinity)
                 }
 
+                // ── Voice Notes ──────────────────────────────────────────
+                sectionHeader("Voice Notes")
+
+                settingsCard {
+                    Toggle(isOn: $settings.autoTranscribe) {
+                        rowLabel("Auto-transcribe after recording")
+                    }
+                    .toggleStyle(.switch)
+
+                    Divider()
+
+                    rowLabel("Transcription Languages")
+                    Text("The app tries both languages and picks the best match.")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+
+                    HStack(spacing: 12) {
+                        Picker("Language 1", selection: $settings.transcribeLang1) {
+                            ForEach(Settings.supportedLanguages, id: \.id) { lang in
+                                Text(lang.label).tag(lang.id)
+                            }
+                        }
+                        .labelsHidden()
+
+                        Picker("Language 2", selection: $settings.transcribeLang2) {
+                            ForEach(Settings.supportedLanguages, id: \.id) { lang in
+                                Text(lang.label).tag(lang.id)
+                            }
+                        }
+                        .labelsHidden()
+                    }
+                }
+
                 // ── Data ─────────────────────────────────────────────────
                 sectionHeader("Data")
 

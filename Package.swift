@@ -13,7 +13,13 @@ let package = Package(
             dependencies: [
                 .product(name: "Sparkle", package: "Sparkle"),
             ],
-            path: "Sources/Notaty"
+            path: "Sources/Notaty",
+            linkerSettings: [
+                .unsafeFlags(["-Xlinker", "-sectcreate",
+                              "-Xlinker", "__TEXT",
+                              "-Xlinker", "__info_plist",
+                              "-Xlinker", "Sources/Notaty/Info.plist"]),
+            ]
         )
     ]
 )

@@ -8,6 +8,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsCancellable: AnyCancellable?
     private var outsideClickMonitor: Any?
     private var localEscMonitor: Any?
+    /// Set to true to prevent the window from auto-hiding on outside clicks.
+    /// Voice recording and transcription set this to avoid permission dialogs
+    /// dismissing the window.
+    var suppressDismiss = false
     private let updaterController = SPUStandardUpdaterController(
         startingUpdater: true,
         updaterDelegate: nil,
@@ -67,6 +71,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         newNoteItem.target = self
         fileMenu.addItem(newNoteItem)
+        let newVoiceItem = NSMenuItem(
+            title: "New Voice Note",
+            action: #selector(newVoiceNote),
+            keyEquivalent: "n"
+        )
+        newVoiceItem.keyEquivalentModifierMask = [.command, .shift]
+        newVoiceItem.target = self
+        fileMenu.addItem(newVoiceItem)
         let switcherItem = NSMenuItem(
             title: "Quick Switcher…",
             action: #selector(openQuickSwitcher),
@@ -163,6 +175,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let newItem = NSMenuItem(title: "New Note", action: #selector(newNote), keyEquivalent: "t")
         newItem.target = self
         menu.addItem(newItem)
+        let voiceItem = NSMenuItem(title: "New Voice Note", action: #selector(newVoiceNote), keyEquivalent: "")
+        voiceItem.target = self
+        menu.addItem(voiceItem)
         menu.addItem(NSMenuItem.separator())
         menu.addItem(
             withTitle: "Quit Notaty",
@@ -209,13 +224,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func installDismissMonitors() {
-        // Click outside the note window → hide (native popover behavior).
         outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: [.leftMouseDown, .rightMouseDown]
         ) { [weak self] _ in
-            self?.hideWindow()
+            guard let self, !self.suppressDismiss else { return }
+            self.hideWindow()
         }
-        // Escape inside the window → hide.
         localEscMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             if event.keyCode == 53 && event.window === self?.windowController.window {
                 self?.hideWindow()
@@ -369,6 +383,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func newNote() {
         NotesStore.shared.addNote()
+        guard let window = windowController.window else { return }
+        if !window.isVisible {
+            NSApp.activate(ignoringOtherApps: true)
+            positionUnderStatusItem(window)
+            window.makeKeyAndOrderFront(nil)
+        }
+    }
+
+    @objc func newVoiceNote() {
+        NotesStore.shared.addVoiceNote()
         guard let window = windowController.window else { return }
         if !window.isVisible {
             NSApp.activate(ignoringOtherApps: true)

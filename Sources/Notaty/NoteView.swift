@@ -17,22 +17,26 @@ struct NoteView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            TextField("Untitled", text: store.titleBinding(for: noteID))
-                .textFieldStyle(.plain)
-                .font(.system(size: 14, weight: .semibold))
-                .padding(.horizontal, 12)
-                .padding(.top, 10)
-                .padding(.bottom, 6)
-                .environment(\.layoutDirection, layoutDirection)
+        if note?.type == .voice {
+            VoiceNoteView(noteID: noteID)
+        } else {
+            VStack(spacing: 0) {
+                TextField("Untitled", text: store.titleBinding(for: noteID))
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 14, weight: .semibold))
+                    .padding(.horizontal, 12)
+                    .padding(.top, 10)
+                    .padding(.bottom, 6)
+                    .environment(\.layoutDirection, layoutDirection)
 
-            Divider()
+                Divider()
 
-            NoteTextEditor(
-                text: store.textBinding(for: noteID),
-                directionMode: note?.direction ?? .auto
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                NoteTextEditor(
+                    text: store.textBinding(for: noteID),
+                    directionMode: note?.direction ?? .auto
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
         }
     }
 }

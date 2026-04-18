@@ -43,6 +43,14 @@ private struct TabBar: View {
             .buttonStyle(.plain)
             .help("New note (⌘T)")
 
+            Button(action: { (NSApp.delegate as? AppDelegate)?.newVoiceNote() }) {
+                Image(systemName: "mic")
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(width: 24, height: 22)
+            }
+            .buttonStyle(.plain)
+            .help("New voice note (⇧⌘N)")
+
             Button(action: { (NSApp.delegate as? AppDelegate)?.startOCRCapture() }) {
                 Image(systemName: "camera.viewfinder")
                     .font(.system(size: 12, weight: .semibold))
