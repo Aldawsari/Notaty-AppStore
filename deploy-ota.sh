@@ -3,12 +3,12 @@
 set -e
 
 MAC="naif@100.122.115.71"
-PROJ_DIR="/home/ft/apps/MacApps/Swalfy/Notaty"
+PROJ_DIR="/home/ft/apps/high/MacApps/Swalfy/Notaty"
 MAC_PROJ="~/apps/Swalfy/Notaty"
-ICAMEL_DIR="/home/ft/apps/MacApps/icamel/web/product/notaty"
+ICAMEL_DIR="/home/ft/apps/high/MacApps/icamel/web/product/notaty"
 SIGN_ID="Developer ID Application: Naif AlQazlan (9VRVCKY375)"
 BUNDLE_ID="com.notaty.app"
-SPARKLE_KEY="/tmp/notaty_ed_key.txt"
+SPARKLE_KEY="~/apps/Swalfy/Notaty/sparkle_ed25519_key.txt"
 SPARKLE_ACCOUNT="notaty-ed25519"
 PUBKEY="XtdBkj5GMxVlo1CnSXHUyrha0egSZLqrD3++JMW5l+k="
 APP_NAME="Notaty"
@@ -25,6 +25,15 @@ if [ -z "$VERSION" ]; then
     exit 1
 fi
 echo "  Version: $VERSION"
+
+# Extract release notes from CHANGELOG.md
+NOTES=""
+if [ -f "$PROJ_DIR/CHANGELOG.md" ]; then
+    NOTES=$(sed -n "/^## v${VERSION}$/,/^## /{/^## v${VERSION}$/d;/^## /d;p;}" "$PROJ_DIR/CHANGELOG.md" | sed 's/^- /<li>/;s|$|</li>|' | grep '<li>' | head -10)
+fi
+if [ -z "$NOTES" ]; then
+    NOTES="<li>Update v${VERSION}</li>"
+fi
 
 echo "==> Syncing to Mac via rsync..."
 rsync -av --delete --exclude='.git' --exclude='.build' --exclude='build' \
@@ -136,7 +145,7 @@ cat > "$ICAMEL_DIR/appcast.xml" << APPCAST
       <title>Version ${VERSION}</title>
       <description><![CDATA[
         <ul>
-          <li>New update v${VERSION}</li>
+          ${NOTES}
         </ul>
       ]]></description>
       <pubDate>${PUB_DATE}</pubDate>

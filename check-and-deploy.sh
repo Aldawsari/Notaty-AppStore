@@ -2,7 +2,7 @@
 # Notaty — check GitHub for new tags, deploy OTA if new version found
 set -e
 
-PROJ_DIR="/home/ft/apps/MacApps/Swalfy/Notaty"
+PROJ_DIR="/home/ft/apps/high/MacApps/Swalfy/Notaty"
 DEPLOYED_FILE="$PROJ_DIR/.last-deployed-version"
 LOG="/home/ft/tools/logs/notaty-deploy.log"
 
