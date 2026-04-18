@@ -258,15 +258,19 @@ struct VoiceNoteView: View {
 
     // MARK: - Actions
 
+    private func playSound(_ name: String) {
+        NSSound(named: NSSound.Name(name))?.play()
+    }
+
     private func startRecording() {
         guard let url = audioURL else { return }
-        // Suppress window dismiss BEFORE starting — the mic permission dialog
-        // may appear synchronously and trigger the outside-click monitor
         appDelegate?.suppressDismiss = true
+        playSound("Tink")
         recorder.startRecording(to: url)
     }
 
     private func stopRecordingAction() {
+        playSound("Pop")
         _ = recorder.stopRecording()
         guard let url = audioURL, FileManager.default.fileExists(atPath: url.path) else { return }
 
