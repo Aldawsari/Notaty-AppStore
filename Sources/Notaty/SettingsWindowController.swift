@@ -23,6 +23,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         window.title = "Notaty Settings"
         window.styleMask = [.titled, .closable]
         window.setContentSize(NSSize(width: 380, height: 460))
+        window.level = .floating
         window.center()
         self.init(window: window)
         window.delegate = self
