@@ -42,7 +42,7 @@ rsync -av --delete --exclude='.git' --exclude='.build' --exclude='build' \
 
 echo "==> Building on Mac..."
 ssh "$MAC" "security unlock-keychain -p '989898' ~/Library/Keychains/login.keychain-db"
-ssh "$MAC" "cd $MAC_PROJ && swift build -c release 2>&1 | tail -3"
+ssh "$MAC" "cd $MAC_PROJ && swift build -c release --arch arm64 --arch x86_64 2>&1 | tail -3"
 
 echo "==> Assembling app bundle v${VERSION}..."
 ssh "$MAC" "bash -s" << REMOTE
@@ -50,7 +50,7 @@ set -e
 APP=/tmp/${APP_NAME}.app
 PROJ=$MAC_PROJ
 SPARKLE_FW="\$PROJ/.build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework"
-BINARY="\$(cd \$PROJ && swift build -c release --show-bin-path 2>/dev/null)/${APP_NAME}"
+BINARY="\$(cd \$PROJ && swift build -c release --arch arm64 --arch x86_64 --show-bin-path 2>/dev/null)/${APP_NAME}"
 
 rm -rf \$APP
 mkdir -p \$APP/Contents/{MacOS,Resources,Frameworks}

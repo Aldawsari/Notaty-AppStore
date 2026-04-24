@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.2.1
+
+- Added Intel Mac support (Universal binary)
+
 ## v1.2
 
 - Voice note recording with waveform visualization
