@@ -5,9 +5,12 @@ struct AttachmentStripView: View {
     let noteID: UUID
     @ObservedObject private var store = NotesStore.shared
 
-    /// Currently-selected chip. Persists across re-renders. Cleared when the
-    /// selected attachment is removed or the user clicks an empty strip area.
-    @State private var selectedID: UUID?
+    /// Currently-selected chips. Plain click → just this one. Shift+click →
+    /// range from the anchor to the clicked chip. Cmd+click → toggle one.
+    @State private var selectedIDs: Set<UUID> = []
+    /// The "anchor" — the last chip clicked without shift. Range select
+    /// extends from this anchor to the shift-clicked chip.
+    @State private var anchorID: UUID?
 
     private let preview = AttachmentPreviewCoordinator.shared
 
@@ -20,7 +23,7 @@ struct AttachmentStripView: View {
             EmptyView()
         } else {
             stripContent
-                .background(SpaceKeyMonitor(isEnabled: selectedID != nil) { handleSpacebar() })
+                .background(SpaceKeyMonitor(isEnabled: !selectedIDs.isEmpty) { handleSpacebar() })
         }
     }
 
@@ -29,9 +32,9 @@ struct AttachmentStripView: View {
             ForEach(attachments) { attachment in
                 AttachmentChipView(
                     attachment: attachment,
-                    isSelected: selectedID == attachment.id,
+                    isSelected: selectedIDs.contains(attachment.id),
                     onSelect: {
-                        selectedID = attachment.id
+                        handleClick(on: attachment.id)
                         // Move first responder away from the text editor so the
                         // spacebar key event reaches our SpaceKeyMonitor instead
                         // of the text view (where it would type a space).
@@ -41,9 +44,8 @@ struct AttachmentStripView: View {
                         NSWorkspace.shared.open(NotesStore.attachmentURL(for: attachment))
                     },
                     onRemove: {
-                        if selectedID == attachment.id {
-                            selectedID = nil
-                        }
+                        selectedIDs.remove(attachment.id)
+                        if anchorID == attachment.id { anchorID = nil }
                         store.removeAttachment(attachment.id, from: noteID)
                     }
                 )
@@ -71,10 +73,42 @@ struct AttachmentStripView: View {
         )
     }
 
+    private func handleClick(on id: UUID) {
+        let modifiers = NSEvent.modifierFlags
+        if modifiers.contains(.shift), let anchor = anchorID {
+            extendSelection(from: anchor, to: id)
+            // Anchor stays put — shift+click extends from the same anchor on
+            // each subsequent shift+click (Finder behavior).
+        } else if modifiers.contains(.command) {
+            if selectedIDs.contains(id) {
+                selectedIDs.remove(id)
+            } else {
+                selectedIDs.insert(id)
+            }
+            anchorID = id
+        } else {
+            selectedIDs = [id]
+            anchorID = id
+        }
+    }
+
+    private func extendSelection(from anchor: UUID, to id: UUID) {
+        guard let anchorIdx = attachments.firstIndex(where: { $0.id == anchor }),
+              let endIdx = attachments.firstIndex(where: { $0.id == id }) else {
+            // Anchor or target not in current list — fall back to single-select.
+            selectedIDs = [id]
+            anchorID = id
+            return
+        }
+        let lo = min(anchorIdx, endIdx)
+        let hi = max(anchorIdx, endIdx)
+        selectedIDs = Set(attachments[lo...hi].map(\.id))
+    }
+
     private func handleSpacebar() {
-        guard let id = selectedID,
-              let attachment = attachments.first(where: { $0.id == id }) else { return }
-        preview.show(attachments: attachments, startAt: attachment.id)
+        let selected = attachments.filter { selectedIDs.contains($0.id) }
+        guard let first = selected.first else { return }
+        preview.show(attachments: selected, startAt: first.id)
     }
 }
 
