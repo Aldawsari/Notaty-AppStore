@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import ImageIO
 
 struct AttachmentChipView: View {
     let attachment: Attachment
@@ -64,12 +65,33 @@ struct AttachmentChipView: View {
 
     @ViewBuilder
     private var thumbnail: some View {
-        // Image-thumbnail support is Task 7. For now everything uses the type icon.
-        if attachment.isImage {
-            typeIcon
+        if attachment.isImage, let nsImage = imageThumbnail {
+            Image(nsImage: nsImage)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 28, height: 28)
+                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
         } else {
             typeIcon
         }
+    }
+
+    /// Decode a small thumbnail from the on-disk file. We bypass NSImage's
+    /// default behavior of loading the full image by using ImageIO to ask
+    /// for a thumbnail of the right pixel size. Returns nil for non-image
+    /// files or decode failures.
+    private var imageThumbnail: NSImage? {
+        let url = NotesStore.attachmentURL(for: attachment)
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceThumbnailMaxPixelSize: 56,  // 28pt @2x
+            kCGImageSourceCreateThumbnailWithTransform: true,
+        ]
+        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
+        else { return nil }
+        return NSImage(cgImage: cgImage, size: NSSize(width: 28, height: 28))
     }
 
     private var typeIcon: some View {
