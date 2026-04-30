@@ -28,7 +28,11 @@ struct AttachmentChipView: View {
             }
 
             if isHovering {
-                Button(action: onRemove) {
+                Button(action: {
+                    pendingSingleClick?.cancel()
+                    pendingSingleClick = nil
+                    onRemove()
+                }) {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 14))
                         .foregroundColor(.secondary)
