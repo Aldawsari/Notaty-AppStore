@@ -30,6 +30,14 @@ struct SettingsView: View {
                     .labelsHidden()
                     .pickerStyle(.segmented)
                     .frame(maxWidth: .infinity)
+
+                    Divider()
+                        .padding(.vertical, 4)
+
+                    Toggle(isOn: $settings.pinned) {
+                        rowLabel("Keep window on top")
+                    }
+                    .toggleStyle(.switch)
                 }
 
                 // ── General ─────────────────────────────────────────────
