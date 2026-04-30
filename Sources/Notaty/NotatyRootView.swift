@@ -38,18 +38,6 @@ struct NotatyRootView: View {
 private struct TabBar: View {
     @ObservedObject var store: NotesStore
 
-    private var activeNoteIsTextNote: Bool {
-        guard let id = store.selectedID,
-              let note = store.notes.first(where: { $0.id == id })
-        else { return false }
-        return note.type == .text
-    }
-
-    private func attachToActiveNote() {
-        guard let id = store.selectedID else { return }
-        AttachmentImporter.openPicker(targetNoteID: id)
-    }
-
     /// Creates a new note. If there are pending attachments from a menu bar
     /// drop, attaches them to the new note.
     private func handleNewNote() {
@@ -68,15 +56,6 @@ private struct TabBar: View {
         HStack(spacing: 0) {
             TabStrip(store: store)
                 .frame(maxWidth: .infinity)
-
-            Button(action: attachToActiveNote) {
-                Image(systemName: "paperclip")
-                    .font(.system(size: 12, weight: .semibold))
-                    .frame(width: 24, height: 22)
-            }
-            .buttonStyle(.plain)
-            .help("Attach file (⌥⌘A)")
-            .disabled(activeNoteIsTextNote == false)
 
             Button(action: handleNewNote) {
                 Image(systemName: "plus")

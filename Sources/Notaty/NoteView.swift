@@ -21,13 +21,24 @@ struct NoteView: View {
             VoiceNoteView(noteID: noteID)
         } else {
             VStack(spacing: 0) {
-                TextField("Untitled", text: store.titleBinding(for: noteID))
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 14, weight: .semibold))
-                    .padding(.horizontal, 12)
-                    .padding(.top, 10)
-                    .padding(.bottom, 6)
-                    .environment(\.layoutDirection, layoutDirection)
+                HStack(spacing: 6) {
+                    TextField("Untitled", text: store.titleBinding(for: noteID))
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 14, weight: .semibold))
+
+                    Button(action: { AttachmentImporter.openPicker(targetNoteID: noteID) }) {
+                        Image(systemName: "paperclip")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.secondary)
+                            .frame(width: 22, height: 22)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Attach file (⌥⌘A)")
+                }
+                .padding(.horizontal, 12)
+                .padding(.top, 10)
+                .padding(.bottom, 6)
+                .environment(\.layoutDirection, layoutDirection)
 
                 Divider()
 
