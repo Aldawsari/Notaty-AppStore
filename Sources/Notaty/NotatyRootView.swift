@@ -355,12 +355,15 @@ private struct TabButton: View {
     }
 
     private func confirmDelete() {
-        // Skip the prompt for notes that were never really used: empty body
-        // and either empty or default "Untitled" title. A brand-new tab the
-        // user immediately closes shouldn't require a confirmation.
+        // Skip the prompt for notes that were never really used: empty body,
+        // no attachments, and either empty or default "Untitled" title.
+        // A brand-new tab the user immediately closes shouldn't require a
+        // confirmation. But if the note has any attachments, that's user
+        // data even with an empty body — always confirm.
         let trimmedTitle = note.title.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedText = note.text.trimmingCharacters(in: .whitespacesAndNewlines)
         let isUntouched = trimmedText.isEmpty
+            && note.attachments.isEmpty
             && (trimmedTitle.isEmpty || trimmedTitle == "Untitled")
         if isUntouched {
             store.delete(id: note.id)
