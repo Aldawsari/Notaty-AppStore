@@ -17,6 +17,15 @@ enum AttachmentImporter {
         panel.prompt = "Attach Files"
         panel.title = "Attach Files"
 
+        // AppDelegate installs a global mouse-down monitor that hides the
+        // main window on any click outside it. Clicking inside NSOpenPanel
+        // (e.g. the "Open" button) is technically outside our window, so
+        // without suppressing the dismiss flag the main window vanishes
+        // when the picker returns. Same pattern used by VoiceNoteView.
+        let appDelegate = NSApp.delegate as? AppDelegate
+        appDelegate?.suppressDismiss = true
+        defer { appDelegate?.suppressDismiss = false }
+
         guard panel.runModal() == .OK else { return }
         attach(urls: panel.urls, to: noteID)
     }
