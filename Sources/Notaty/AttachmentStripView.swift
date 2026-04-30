@@ -1,5 +1,17 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
+
+/// In-process UTI for dragging a multi-selection of attachment chips.
+/// Carries a JSON-encoded array of storedName strings (one per selected chip),
+/// in the order they appear in the strip. Internal use only — not registered
+/// system-wide because we never accept this from another app.
+extension UTType {
+    static let notatyAttachmentSelection = UTType(
+        exportedAs: "com.notaty.attachment-selection",
+        conformingTo: .data
+    )
+}
 
 struct AttachmentStripView: View {
     let noteID: UUID
@@ -58,6 +70,27 @@ struct AttachmentStripView: View {
                     let url = NotesStore.attachmentURL(for: attachment)
                     let provider = NSItemProvider(object: url as NSURL)
                     provider.suggestedName = attachment.originalName
+
+                    // If this chip is part of a multi-selection, also register
+                    // a manifest of all selected storedNames so the drop
+                    // receiver can move them all together. The dragged chip
+                    // itself is included in the manifest, so the URL
+                    // representation is ignored when the manifest is present.
+                    let inMultiSelection = selectedIDs.contains(attachment.id) && selectedIDs.count > 1
+                    if inMultiSelection {
+                        let storedNames = attachments
+                            .filter { selectedIDs.contains($0.id) }
+                            .map(\.storedName)
+                        if let data = try? JSONEncoder().encode(storedNames) {
+                            provider.registerDataRepresentation(
+                                forTypeIdentifier: UTType.notatyAttachmentSelection.identifier,
+                                visibility: .ownProcess
+                            ) { completion in
+                                completion(data, nil)
+                                return nil
+                            }
+                        }
+                    }
                     return provider
                 }
             }

@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct NotatyRootView: View {
     @ObservedObject private var store = NotesStore.shared
@@ -303,7 +304,7 @@ private struct TabButton: View {
                 }
             }
         }
-        .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
+        .onDrop(of: [.fileURL, .notatyAttachmentSelection], isTargeted: $isDropTargeted) { providers in
             handleDrop(providers: providers)
         }
     }
@@ -311,25 +312,45 @@ private struct TabButton: View {
     @MainActor
     private func handleDrop(providers: [NSItemProvider]) -> Bool {
         let group = DispatchGroup()
+        var manifestStoredNames: [String] = []
         var urls: [URL] = []
+        let manifestType = UTType.notatyAttachmentSelection.identifier
+
         for provider in providers {
-            group.enter()
-            _ = provider.loadObject(ofClass: URL.self) { url, _ in
-                if let url { urls.append(url) }
-                group.leave()
+            if provider.hasItemConformingToTypeIdentifier(manifestType) {
+                // Multi-selection drag from inside the app. Use the manifest
+                // and ignore the URL representation on this same provider
+                // (the dragged chip is already included in the manifest).
+                group.enter()
+                _ = provider.loadDataRepresentation(forTypeIdentifier: manifestType) { data, _ in
+                    if let data,
+                       let names = try? JSONDecoder().decode([String].self, from: data) {
+                        manifestStoredNames.append(contentsOf: names)
+                    }
+                    group.leave()
+                }
+            } else {
+                group.enter()
+                _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                    if let url { urls.append(url) }
+                    group.leave()
+                }
             }
         }
         group.notify(queue: .main) { [noteID = note.id, store] in
-            // Match by lastPathComponent (the storedName UUID) — robust against
-            // /private/ prefixes and other symlink-resolved path differences
-            // that can show up when URLs round-trip through the pasteboard.
-            let knownStoredNames: Set<String> = Set(store.notes.flatMap { $0.attachments.map(\.storedName) })
+            // Process the multi-selection manifest first.
+            for name in manifestStoredNames {
+                store.moveAttachment(storedName: name, to: noteID)
+            }
 
+            // Then process single URLs (could be internal single-chip move
+            // or external Finder file). Match by lastPathComponent — robust
+            // against /private/ prefixes when URLs round-trip the pasteboard.
+            let knownStoredNames: Set<String> = Set(store.notes.flatMap { $0.attachments.map(\.storedName) })
             var externalURLs: [URL] = []
             for url in urls {
                 let storedName = url.lastPathComponent
                 if knownStoredNames.contains(storedName) {
-                    // Internal: chip dragged from another note's strip → move metadata.
                     store.moveAttachment(storedName: storedName, to: noteID)
                 } else {
                     externalURLs.append(url)
