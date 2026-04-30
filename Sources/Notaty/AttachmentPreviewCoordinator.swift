@@ -39,7 +39,24 @@ extension AttachmentPreviewCoordinator: QLPreviewPanelDataSource, QLPreviewPanel
     }
 
     func previewPanel(_ panel: QLPreviewPanel!, previewItemAt index: Int) -> QLPreviewItem! {
-        let url = NotesStore.attachmentURL(for: items[index])
-        return url as NSURL
+        let attachment = items[index]
+        let url = NotesStore.attachmentURL(for: attachment)
+        return TitledPreviewItem(url: url, title: attachment.originalName)
     }
+}
+
+/// Lets Quick Look display the user-facing original filename instead of the
+/// on-disk UUID-based name. The URL still points to the actual file on disk;
+/// only the displayed title is overridden.
+private final class TitledPreviewItem: NSObject, QLPreviewItem {
+    let url: URL
+    let title: String
+
+    init(url: URL, title: String) {
+        self.url = url
+        self.title = title
+    }
+
+    var previewItemURL: URL? { url }
+    var previewItemTitle: String? { title }
 }
