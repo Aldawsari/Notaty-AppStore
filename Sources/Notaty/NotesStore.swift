@@ -27,9 +27,13 @@ final class NotesStore: ObservableObject {
     static let audioDir: URL = {
         appSupportDir.appendingPathComponent("audio", isDirectory: true)
     }()
+    static let attachmentsDir: URL = {
+        appSupportDir.appendingPathComponent("attachments", isDirectory: true)
+    }()
 
     private init() {
         ensureAppSupportDir()
+        ensureAttachmentsDir()
         load()
         $notes
             .dropFirst()
@@ -88,6 +92,10 @@ final class NotesStore: ObservableObject {
         return audioDir.appendingPathComponent(filename)
     }
 
+    static func attachmentURL(for attachment: Attachment) -> URL {
+        attachmentsDir.appendingPathComponent(attachment.storedName)
+    }
+
     func moveNote(fromID: UUID, toID: UUID) {
         guard fromID != toID,
               let fromIndex = indexByID[fromID],
@@ -110,6 +118,43 @@ final class NotesStore: ObservableObject {
     func update(id: UUID, transform: (inout Note) -> Void) {
         guard let index = indexByID[id] else { return }
         transform(&notes[index])
+    }
+
+    /// Copy each source URL into `attachmentsDir` under a UUID-based name and
+    /// append a corresponding `Attachment` to the note's array. Returns the
+    /// number of files successfully attached. Files that fail to copy are
+    /// silently skipped (the caller handles the error UI per file).
+    @discardableResult
+    func addAttachments(to noteID: UUID, from sourceURLs: [URL]) -> Int {
+        guard !sourceURLs.isEmpty, indexByID[noteID] != nil else { return 0 }
+        ensureAttachmentsDir()
+
+        var added: [Attachment] = []
+        for source in sourceURLs {
+            let originalName = source.lastPathComponent
+            let ext = source.pathExtension
+            let storedName = ext.isEmpty
+                ? UUID().uuidString
+                : "\(UUID().uuidString).\(ext)"
+            let dest = Self.attachmentsDir.appendingPathComponent(storedName)
+
+            do {
+                try FileManager.default.copyItem(at: source, to: dest)
+                let size = (try? FileManager.default.attributesOfItem(atPath: dest.path)[.size] as? Int64) ?? 0
+                added.append(Attachment(
+                    originalName: originalName,
+                    storedName: storedName,
+                    byteSize: size
+                ))
+            } catch {
+                NSLog("Notaty: failed to attach \(originalName): \(error)")
+                continue
+            }
+        }
+
+        guard !added.isEmpty else { return 0 }
+        update(id: noteID) { $0.attachments.append(contentsOf: added) }
+        return added.count
     }
 
     func note(for id: UUID) -> Note? {
@@ -224,6 +269,13 @@ final class NotesStore: ObservableObject {
     func ensureAudioDir() {
         try? FileManager.default.createDirectory(
             at: Self.audioDir,
+            withIntermediateDirectories: true
+        )
+    }
+
+    func ensureAttachmentsDir() {
+        try? FileManager.default.createDirectory(
+            at: Self.attachmentsDir,
             withIntermediateDirectories: true
         )
     }
