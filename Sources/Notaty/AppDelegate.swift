@@ -45,6 +45,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 NoteWindowController.saveSize(preset.size)
                 self?.applyDefaultSize(preset.size, reposition: true)
             }
+
+        // Run once on launch: drop any attachment file no longer referenced
+        // by a note's metadata.
+        NotesStore.shared.cleanupOrphanedAttachmentFiles()
     }
 
     // MARK: - Main menu

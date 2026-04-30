@@ -300,4 +300,19 @@ final class NotesStore: ObservableObject {
             withIntermediateDirectories: true
         )
     }
+
+    /// Sweep `attachmentsDir` and remove any file not referenced by any note's
+    /// `attachments` array. Called once on launch.
+    func cleanupOrphanedAttachmentFiles() {
+        let referenced = Set(notes.flatMap { $0.attachments.map(\.storedName) })
+        let dir = Self.attachmentsDir
+        guard let entries = try? FileManager.default.contentsOfDirectory(
+            at: dir,
+            includingPropertiesForKeys: nil
+        ) else { return }
+
+        for entry in entries where !referenced.contains(entry.lastPathComponent) {
+            try? FileManager.default.removeItem(at: entry)
+        }
+    }
 }
