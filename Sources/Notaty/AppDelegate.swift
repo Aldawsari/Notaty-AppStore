@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsCancellable: AnyCancellable?
     private var outsideClickMonitor: Any?
     private var localEscMonitor: Any?
+    private var statusDropOverlay: StatusItemDropOverlay?
     /// Set to true to prevent the window from auto-hiding on outside clicks.
     /// Voice recording and transcription set this to avoid permission dialogs
     /// dismissing the window.
@@ -33,6 +34,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             button.action = #selector(handleClick)
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
+        installStatusDropOverlay()
 
         // Ensure there is always at least one note on first launch.
         if NotesStore.shared.notes.isEmpty {
@@ -237,6 +239,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             window.orderOut(nil)
             window.alphaValue = 1
         })
+    }
+
+    private func installStatusDropOverlay() {
+        guard let button = statusItem.button,
+              let buttonSuperview = button.superview else { return }
+
+        let overlay = StatusItemDropOverlay(frame: button.frame)
+        overlay.autoresizingMask = [.width, .height]
+        overlay.onDrop = { [weak self] urls in
+            self?.handleStatusItemDrop(urls)
+        }
+        buttonSuperview.addSubview(overlay, positioned: .above, relativeTo: button)
+        statusDropOverlay = overlay
+    }
+
+    private func handleStatusItemDrop(_ urls: [URL]) {
+        PendingAttachments.shared.set(urls)
+        // Reveal the window so the user can pick a destination note.
+        if let window = windowController.window, !window.isVisible {
+            toggleWindow()
+        } else {
+            // Already visible — bring to front so the banner is seen.
+            NSApp.activate(ignoringOtherApps: true)
+            windowController.window?.makeKeyAndOrderFront(nil)
+        }
     }
 
     private func installDismissMonitors() {
