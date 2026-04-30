@@ -58,9 +58,7 @@ struct AttachmentStripView: View {
                         NSWorkspace.shared.open(NotesStore.attachmentURL(for: attachment))
                     },
                     onRemove: {
-                        selectedIDs.remove(attachment.id)
-                        if anchorID == attachment.id { anchorID = nil }
-                        store.removeAttachment(attachment.id, from: noteID)
+                        confirmAndRemove([attachment.id])
                     }
                 )
                 .onDrag {
@@ -138,13 +136,39 @@ struct AttachmentStripView: View {
     }
 
     private func handleDelete() {
-        let toDelete = selectedIDs
-        guard !toDelete.isEmpty else { return }
-        for id in toDelete {
-            store.removeAttachment(id, from: noteID)
+        guard !selectedIDs.isEmpty else { return }
+        confirmAndRemove(selectedIDs)
+    }
+
+    /// Shared confirm-then-remove path. Used by the chip's × button (single
+    /// attachment) and by the Delete key (current selection). Mirrors the
+    /// note-deletion confirmation pattern in TabButton.confirmDelete.
+    private func confirmAndRemove(_ ids: Set<UUID>) {
+        guard !ids.isEmpty else { return }
+        // Snapshot the attachment values before mutating, so we can name them
+        // in the alert AND iterate them after the user confirms.
+        let targets = attachments.filter { ids.contains($0.id) }
+        guard !targets.isEmpty else { return }
+
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        if targets.count == 1 {
+            alert.messageText = "Delete this attachment?"
+            alert.informativeText = "\"\(targets[0].originalName)\" will be permanently removed."
+        } else {
+            alert.messageText = "Delete \(targets.count) attachments?"
+            alert.informativeText = "\(targets.count) files will be permanently removed."
         }
-        selectedIDs = []
-        anchorID = nil
+        alert.addButton(withTitle: "Delete")
+        alert.addButton(withTitle: "Cancel")
+
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+
+        for attachment in targets {
+            selectedIDs.remove(attachment.id)
+            if anchorID == attachment.id { anchorID = nil }
+            store.removeAttachment(attachment.id, from: noteID)
+        }
     }
 }
 
