@@ -238,7 +238,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func hideWindow() {
-        PendingAttachments.shared.clear()
+        // Note: do NOT clear pending here. Outside-click hide is not an
+        // explicit cancel — the user may be reaching to Finder to drag
+        // another file. Pending survives until explicit Esc / banner × /
+        // red close button.
         guard let window = windowController.window, window.isVisible else { return }
         removeDismissMonitors()
         NSAnimationContext.runAnimationGroup({ context in
