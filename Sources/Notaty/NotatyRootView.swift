@@ -320,12 +320,16 @@ private struct TabButton: View {
             }
         }
         group.notify(queue: .main) { [noteID = note.id, store] in
-            let attachmentsDirPath = NotesStore.attachmentsDir.path
+            // Match by lastPathComponent (the storedName UUID) — robust against
+            // /private/ prefixes and other symlink-resolved path differences
+            // that can show up when URLs round-trip through the pasteboard.
+            let knownStoredNames: Set<String> = Set(store.notes.flatMap { $0.attachments.map(\.storedName) })
+
             var externalURLs: [URL] = []
             for url in urls {
-                if url.path.hasPrefix(attachmentsDirPath) {
+                let storedName = url.lastPathComponent
+                if knownStoredNames.contains(storedName) {
                     // Internal: chip dragged from another note's strip → move metadata.
-                    let storedName = url.lastPathComponent
                     store.moveAttachment(storedName: storedName, to: noteID)
                 } else {
                     externalURLs.append(url)
