@@ -39,6 +39,28 @@ struct NoteView: View {
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+            .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+                handleDrop(providers: providers)
+            }
         }
+    }
+
+    @MainActor
+    private func handleDrop(providers: [NSItemProvider]) -> Bool {
+        let group = DispatchGroup()
+        var urls: [URL] = []
+
+        for provider in providers {
+            group.enter()
+            _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                if let url { urls.append(url) }
+                group.leave()
+            }
+        }
+
+        group.notify(queue: .main) { [noteID] in
+            AttachmentImporter.attach(urls: urls, to: noteID)
+        }
+        return true
     }
 }
