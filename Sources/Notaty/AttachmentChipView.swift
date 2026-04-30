@@ -13,20 +13,43 @@ struct AttachmentChipView: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            thumbnail
-                .frame(width: 28, height: 28)
+            // Gesture-receiving inner content (thumbnail + name/size).
+            HStack(spacing: 8) {
+                thumbnail
+                    .frame(width: 28, height: 28)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(attachment.originalName)
-                    .font(.system(size: 12, weight: .medium))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                Text(formattedSize)
-                    .font(.system(size: 10))
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(attachment.originalName)
+                        .font(.system(size: 12, weight: .medium))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Text(formattedSize)
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
             }
+            .contentShape(Rectangle())
+            .gesture(
+                ExclusiveGesture(
+                    TapGesture(count: 2).onEnded {
+                        pendingSingleClick?.cancel()
+                        pendingSingleClick = nil
+                        onDoubleClick()
+                    },
+                    TapGesture(count: 1).onEnded {
+                        let work = DispatchWorkItem { onSingleClick() }
+                        pendingSingleClick = work
+                        let delay = NSEvent.doubleClickInterval
+                        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+                    }
+                )
+            )
 
+            // × button — sibling of the gesture-receiving HStack, NOT a child.
+            // This is the structural fix for the bug: the parent gesture
+            // does not extend over the × button's frame, so clicking ×
+            // only fires the Button's action, never the parent gesture.
             if isHovering {
                 Button(action: {
                     pendingSingleClick?.cancel()
@@ -52,23 +75,7 @@ struct AttachmentChipView: View {
                 .strokeBorder(Color(NSColor.separatorColor), lineWidth: 1)
         )
         .shadow(color: .black.opacity(0.04), radius: 1, y: 1)
-        .contentShape(Rectangle())
         .onHover { isHovering = $0 }
-        .gesture(
-            ExclusiveGesture(
-                TapGesture(count: 2).onEnded {
-                    pendingSingleClick?.cancel()
-                    pendingSingleClick = nil
-                    onDoubleClick()
-                },
-                TapGesture(count: 1).onEnded {
-                    let work = DispatchWorkItem { onSingleClick() }
-                    pendingSingleClick = work
-                    let delay = NSEvent.doubleClickInterval
-                    DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
-                }
-            )
-        )
     }
 
     @ViewBuilder
