@@ -256,6 +256,8 @@ private struct TabButton: View {
     @ObservedObject var store: NotesStore
     var isDragging: Bool = false
 
+    @State private var isDropTargeted: Bool = false
+
     private var isActive: Bool { store.selectedID == note.id }
     private var label: String {
         let trimmed = note.title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -286,6 +288,10 @@ private struct TabButton: View {
             RoundedRectangle(cornerRadius: 6)
                 .fill(isActive ? Color.primary.opacity(0.12) : Color.primary.opacity(0.04))
         )
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .strokeBorder(Color.accentColor, lineWidth: isDropTargeted ? 2 : 0)
+        )
         .opacity(isDragging ? 0.4 : 1.0)
         .contentShape(Rectangle())
         .onTapGesture {
@@ -297,6 +303,39 @@ private struct TabButton: View {
                 }
             }
         }
+        .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
+            handleDrop(providers: providers)
+        }
+    }
+
+    @MainActor
+    private func handleDrop(providers: [NSItemProvider]) -> Bool {
+        let group = DispatchGroup()
+        var urls: [URL] = []
+        for provider in providers {
+            group.enter()
+            _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                if let url { urls.append(url) }
+                group.leave()
+            }
+        }
+        group.notify(queue: .main) { [noteID = note.id, store] in
+            let attachmentsDirPath = NotesStore.attachmentsDir.path
+            var externalURLs: [URL] = []
+            for url in urls {
+                if url.path.hasPrefix(attachmentsDirPath) {
+                    // Internal: chip dragged from another note's strip → move metadata.
+                    let storedName = url.lastPathComponent
+                    store.moveAttachment(storedName: storedName, to: noteID)
+                } else {
+                    externalURLs.append(url)
+                }
+            }
+            if !externalURLs.isEmpty {
+                AttachmentImporter.attach(urls: externalURLs, to: noteID)
+            }
+        }
+        return true
     }
 
     private func confirmDelete() {

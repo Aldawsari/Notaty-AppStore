@@ -163,6 +163,25 @@ final class NotesStore: ObservableObject {
         return added.count
     }
 
+    /// Move an attachment's metadata from one note to another. The on-disk
+    /// sidecar file is unchanged — only the `[Attachment]` array entry
+    /// transfers. Returns true on success, false if the source can't be
+    /// found, source equals destination, or destination doesn't exist.
+    @discardableResult
+    func moveAttachment(storedName: String, to destinationNoteID: UUID) -> Bool {
+        guard indexByID[destinationNoteID] != nil else { return false }
+        guard let sourceIndex = notes.firstIndex(where: { note in
+            note.attachments.contains(where: { $0.storedName == storedName })
+        }) else { return false }
+        let sourceNoteID = notes[sourceIndex].id
+        if sourceNoteID == destinationNoteID { return false }
+        guard let attachment = notes[sourceIndex].attachments.first(where: { $0.storedName == storedName }) else { return false }
+
+        update(id: sourceNoteID) { $0.attachments.removeAll { $0.storedName == storedName } }
+        update(id: destinationNoteID) { $0.attachments.append(attachment) }
+        return true
+    }
+
     /// Remove a single attachment from a note: deletes the sidecar file from
     /// disk, then drops the metadata from the note's array.
     func removeAttachment(_ attachmentID: UUID, from noteID: UUID) {
