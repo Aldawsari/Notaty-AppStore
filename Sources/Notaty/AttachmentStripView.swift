@@ -33,7 +33,11 @@ struct AttachmentStripView: View {
             EmptyView()
         } else {
             stripContent
-                .background(SpaceKeyMonitor(isEnabled: !selectedIDs.isEmpty) { handleSpacebar() })
+                .background(SelectionKeyMonitor(
+                    isEnabled: !selectedIDs.isEmpty,
+                    onSpace: { handleSpacebar() },
+                    onDelete: { handleDelete() }
+                ))
         }
     }
 
@@ -132,6 +136,16 @@ struct AttachmentStripView: View {
         guard let first = selected.first else { return }
         preview.show(attachments: selected, startAt: first.id)
     }
+
+    private func handleDelete() {
+        let toDelete = selectedIDs
+        guard !toDelete.isEmpty else { return }
+        for id in toDelete {
+            store.removeAttachment(id, from: noteID)
+        }
+        selectedIDs = []
+        anchorID = nil
+    }
 }
 
 /// Wraps children left-to-right, breaking to a new line when the next child
@@ -179,23 +193,27 @@ struct FlowLayout: Layout {
     }
 }
 
-/// Installs an NSEvent local monitor for the spacebar key. Fires `onSpace`
-/// only when (a) `isEnabled` is true and (b) the current first responder is
-/// NOT an NSText (so the user can still type spaces in the body editor).
-/// Returns nil from the monitor (event consumed) when both conditions hold.
-private struct SpaceKeyMonitor: NSViewRepresentable {
+/// Installs an NSEvent local monitor for keys that act on the attachment
+/// selection: Space (Quick Look) and Delete / Forward-Delete (remove).
+/// Fires the appropriate handler only when (a) `isEnabled` is true and
+/// (b) the current first responder is NOT an NSText (so spaces and
+/// backspace still work in the body editor). Returns nil from the
+/// monitor (event consumed) when both conditions hold.
+private struct SelectionKeyMonitor: NSViewRepresentable {
     let isEnabled: Bool
     let onSpace: () -> Void
+    let onDelete: () -> Void
 
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
-        context.coordinator.install(onSpace: onSpace)
+        context.coordinator.install(onSpace: onSpace, onDelete: onDelete)
         return view
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
         context.coordinator.isEnabled = isEnabled
         context.coordinator.onSpace = onSpace
+        context.coordinator.onDelete = onDelete
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(isEnabled: isEnabled) }
@@ -207,26 +225,35 @@ private struct SpaceKeyMonitor: NSViewRepresentable {
     final class Coordinator {
         var isEnabled: Bool
         var onSpace: () -> Void = {}
+        var onDelete: () -> Void = {}
         private var monitor: Any?
 
         init(isEnabled: Bool) {
             self.isEnabled = isEnabled
         }
 
-        func install(onSpace: @escaping () -> Void) {
+        func install(onSpace: @escaping () -> Void, onDelete: @escaping () -> Void) {
             self.onSpace = onSpace
-            // 49 = kVK_Space
+            self.onDelete = onDelete
             monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
                 guard let self else { return event }
                 guard self.isEnabled else { return event }
-                guard event.keyCode == 49 else { return event }
-                // Defer to text-input first responders so spaces still type.
+                // Defer to text-input first responders so spaces still type
+                // and Delete still backspaces in the editor.
                 if let responder = NSApp.keyWindow?.firstResponder,
                    responder is NSText || responder.isKind(of: NSText.self) {
                     return event
                 }
-                self.onSpace()
-                return nil
+                switch event.keyCode {
+                case 49: // kVK_Space
+                    self.onSpace()
+                    return nil
+                case 51, 117: // kVK_Delete, kVK_ForwardDelete
+                    self.onDelete()
+                    return nil
+                default:
+                    return event
+                }
             }
         }
 
