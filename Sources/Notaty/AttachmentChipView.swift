@@ -54,17 +54,21 @@ struct AttachmentChipView: View {
         .shadow(color: .black.opacity(0.04), radius: 1, y: 1)
         .contentShape(Rectangle())
         .onHover { isHovering = $0 }
-        .onTapGesture(count: 2) {
-            pendingSingleClick?.cancel()
-            pendingSingleClick = nil
-            onDoubleClick()
-        }
-        .simultaneousGesture(TapGesture(count: 1).onEnded {
-            let work = DispatchWorkItem { onSingleClick() }
-            pendingSingleClick = work
-            let delay = NSEvent.doubleClickInterval
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
-        })
+        .gesture(
+            ExclusiveGesture(
+                TapGesture(count: 2).onEnded {
+                    pendingSingleClick?.cancel()
+                    pendingSingleClick = nil
+                    onDoubleClick()
+                },
+                TapGesture(count: 1).onEnded {
+                    let work = DispatchWorkItem { onSingleClick() }
+                    pendingSingleClick = work
+                    let delay = NSEvent.doubleClickInterval
+                    DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+                }
+            )
+        )
     }
 
     @ViewBuilder
