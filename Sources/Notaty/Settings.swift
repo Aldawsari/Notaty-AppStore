@@ -72,6 +72,10 @@ final class Settings: ObservableObject {
         }
     }
 
+    @Published var pinned: Bool {
+        didSet { UserDefaults.standard.set(pinned, forKey: Self.pinnedKey) }
+    }
+
     @Published var voiceNotesEnabled: Bool {
         didSet { UserDefaults.standard.set(voiceNotesEnabled, forKey: Self.voiceNotesKey) }
     }
@@ -108,6 +112,7 @@ final class Settings: ObservableObject {
     private static let voiceNotesKey = "voiceNotesEnabled"
     private static let autoTranscribeKey = "autoTranscribe"
     private static let langKey = "transcribeLanguage"
+    private static let pinnedKey = "windowPinned"
 
     private init() {
         let rawSize = UserDefaults.standard.string(forKey: Self.sizeKey) ?? ""
@@ -124,6 +129,7 @@ final class Settings: ObservableObject {
             ? UserDefaults.standard.bool(forKey: Self.autoTranscribeKey)
             : false
         self.transcribeLanguage = UserDefaults.standard.string(forKey: Self.langKey) ?? "ar-SA"
+        self.pinned = UserDefaults.standard.bool(forKey: Self.pinnedKey)
 
         // Default to ON if never set
         if UserDefaults.standard.object(forKey: Self.launchKey) == nil {
