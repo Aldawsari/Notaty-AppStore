@@ -99,6 +99,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         saveAsItem.keyEquivalentModifierMask = [.command, .shift]
         saveAsItem.target = self
         fileMenu.addItem(saveAsItem)
+
+        fileMenu.addItem(NSMenuItem.separator())
+
+        let attachItem = NSMenuItem(
+            title: "Attach File…",
+            action: #selector(attachFile),
+            keyEquivalent: "a"
+        )
+        attachItem.keyEquivalentModifierMask = [.command, .option]
+        attachItem.target = self
+        fileMenu.addItem(attachItem)
         fileMenuItem.submenu = fileMenu
         mainMenu.addItem(fileMenuItem)
 
@@ -270,6 +281,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func saveAs() {
         NotatyActions.saveSelectedNoteAs()
+    }
+
+    @MainActor @objc func attachFile() {
+        NotatyActions.attachToSelectedNote()
     }
 
     @objc func exportAll() {

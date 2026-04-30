@@ -173,6 +173,15 @@ enum NotatyActions {
         }
     }
 
+    @MainActor
+    static func attachToSelectedNote() {
+        guard let id = NotesStore.shared.selectedID else {
+            NSSound.beep()
+            return
+        }
+        AttachmentImporter.openPicker(targetNoteID: id)
+    }
+
     // Send a standard editing action through the responder chain so it reaches
     // the currently focused NSTextView regardless of which view is hosting it.
     static func sendEditAction(_ selector: Selector) {
