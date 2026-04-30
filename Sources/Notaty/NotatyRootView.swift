@@ -37,6 +37,7 @@ struct NotatyRootView: View {
 
 private struct TabBar: View {
     @ObservedObject var store: NotesStore
+    @ObservedObject private var settings = Settings.shared
 
     private var activeNoteIsTextNote: Bool {
         guard let id = store.selectedID,
@@ -77,6 +78,17 @@ private struct TabBar: View {
             .buttonStyle(.plain)
             .help("Attach file (⌥⌘A)")
             .disabled(activeNoteIsTextNote == false)
+
+            if settings.showPinButton {
+                Button(action: { Settings.shared.pinned.toggle() }) {
+                    Image(systemName: settings.pinned ? "pin.fill" : "pin")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(settings.pinned ? .accentColor : .secondary)
+                        .frame(width: 24, height: 22)
+                }
+                .buttonStyle(.plain)
+                .help(settings.pinned ? "Unpin window" : "Pin window on top")
+            }
 
             Button(action: handleNewNote) {
                 Image(systemName: "plus")

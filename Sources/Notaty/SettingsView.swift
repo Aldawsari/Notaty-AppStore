@@ -30,6 +30,19 @@ struct SettingsView: View {
                     .labelsHidden()
                     .pickerStyle(.segmented)
                     .frame(maxWidth: .infinity)
+
+                    Divider()
+                        .padding(.vertical, 4)
+
+                    Toggle(isOn: $settings.pinned) {
+                        rowLabel("Keep window on top")
+                    }
+                    .toggleStyle(.switch)
+
+                    Toggle(isOn: $settings.showPinButton) {
+                        rowLabel("Show pin button in tab bar")
+                    }
+                    .toggleStyle(.switch)
                 }
 
                 // ── General ─────────────────────────────────────────────

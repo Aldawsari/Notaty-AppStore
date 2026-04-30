@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private let windowController = NoteWindowController()
     private var settingsCancellable: AnyCancellable?
+    private var pinnedCancellable: AnyCancellable?
     private var outsideClickMonitor: Any?
     private var localEscMonitor: Any?
     private var statusDropOverlay: StatusItemDropOverlay?
@@ -61,6 +62,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Run once on launch: drop any attachment file no longer referenced
         // by a note's metadata.
         NotesStore.shared.cleanupOrphanedAttachmentFiles()
+
+        // Respond to runtime toggles of the pinned setting:
+        // - true → ensure the dismiss monitor is removed (window stays put)
+        // - false → if the window is currently visible, reinstall the monitor
+        pinnedCancellable = Settings.shared.$pinned
+            .dropFirst()  // skip the initial value; showWindow handles first install
+            .sink { [weak self] pinned in
+                guard let self else { return }
+                if pinned {
+                    self.removeDismissMonitors()
+                } else if let window = self.windowController.window, window.isVisible {
+                    self.installDismissMonitors()
+                }
+            }
     }
 
     // MARK: - Main menu
@@ -234,7 +249,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             window.animator().alphaValue = 1
         }
-        installDismissMonitors()
+        // Only install the dismiss monitor when the user hasn't pinned the
+        // window. When pinned, the window stays put until explicitly closed.
+        if !Settings.shared.pinned {
+            installDismissMonitors()
+        }
     }
 
     private func hideWindow() {
