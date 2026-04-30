@@ -76,15 +76,16 @@ final class NotesStore: ObservableObject {
     func delete(id: UUID) {
         guard let index = indexByID[id] else { return }
         let note = notes[index]
-        // Cascade: remove the audio sidecar (voice notes) and all attachment
-        // sidecars (text notes can have any number).
+        // Cascade: move the audio sidecar (voice notes) and all attachment
+        // sidecars (text notes can have any number) to the Trash so the user
+        // can restore them from Finder if needed.
         if note.type == .voice, let filename = note.audioFilename {
             let audioURL = Self.audioDir.appendingPathComponent(filename)
-            try? FileManager.default.removeItem(at: audioURL)
+            try? FileManager.default.trashItem(at: audioURL, resultingItemURL: nil)
         }
         for attachment in note.attachments {
             let url = Self.attachmentURL(for: attachment)
-            try? FileManager.default.removeItem(at: url)
+            try? FileManager.default.trashItem(at: url, resultingItemURL: nil)
         }
         notes.remove(at: index)
         rebuildIndex()
@@ -182,15 +183,16 @@ final class NotesStore: ObservableObject {
         return true
     }
 
-    /// Remove a single attachment from a note: deletes the sidecar file from
-    /// disk, then drops the metadata from the note's array.
+    /// Remove a single attachment from a note: moves the sidecar file to the
+    /// Trash (so the user can restore it from Finder), then drops the
+    /// metadata from the note's array.
     func removeAttachment(_ attachmentID: UUID, from noteID: UUID) {
         guard let note = self.note(for: noteID),
               let target = note.attachments.first(where: { $0.id == attachmentID })
         else { return }
 
         let url = Self.attachmentURL(for: target)
-        try? FileManager.default.removeItem(at: url)
+        try? FileManager.default.trashItem(at: url, resultingItemURL: nil)
 
         update(id: noteID) {
             $0.attachments.removeAll { $0.id == attachmentID }
@@ -331,7 +333,10 @@ final class NotesStore: ObservableObject {
         ) else { return }
 
         for entry in entries where !referenced.contains(entry.lastPathComponent) {
-            try? FileManager.default.removeItem(at: entry)
+            // Trash, don't permanently delete — orphan files might come from
+            // a crash mid-attach; preserving them in Trash gives the user a
+            // recovery path if the metadata gets corrupted later.
+            try? FileManager.default.trashItem(at: entry, resultingItemURL: nil)
         }
     }
 

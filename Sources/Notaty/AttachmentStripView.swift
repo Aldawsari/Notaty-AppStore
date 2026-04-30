@@ -154,10 +154,10 @@ struct AttachmentStripView: View {
         alert.alertStyle = .warning
         if targets.count == 1 {
             alert.messageText = "Delete this attachment?"
-            alert.informativeText = "\"\(targets[0].originalName)\" will be permanently removed."
+            alert.informativeText = "\"\(targets[0].originalName)\" will be moved to the Trash."
         } else {
             alert.messageText = "Delete \(targets.count) attachments?"
-            alert.informativeText = "\(targets.count) files will be permanently removed."
+            alert.informativeText = "\(targets.count) files will be moved to the Trash."
         }
         alert.addButton(withTitle: "Delete")
         alert.addButton(withTitle: "Cancel")
