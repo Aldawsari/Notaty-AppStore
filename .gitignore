@@ -5,3 +5,5 @@ build_iconset/
 *.xcuserstate
 .swiftpm/
 Models/
+
+.superpowers/
