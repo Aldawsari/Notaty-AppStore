@@ -18,12 +18,18 @@ final class AttachmentPreviewCoordinator: NSObject, ObservableObject {
         self.startID = id
 
         guard let panel = QLPreviewPanel.shared() else { return }
-        panel.makeKeyAndOrderFront(nil)
-        panel.reloadData()
 
+        // Wire dataSource and starting index BEFORE the panel becomes visible.
+        // If we orderFront first, the panel briefly opens with no data and
+        // flashes the wrong/empty preview before reloadData lands.
+        panel.dataSource = self
+        panel.delegate = self
+        panel.reloadData()
         if let i = items.firstIndex(where: { $0.id == id }) {
             panel.currentPreviewItemIndex = i
         }
+
+        panel.makeKeyAndOrderFront(nil)
     }
 }
 
