@@ -34,6 +34,17 @@ struct NoteView: View {
                     }
                     .buttonStyle(.plain)
                     .help("Attach file (⌥⌘A)")
+
+                    if Settings.shared.voiceNotesEnabled {
+                        Button(action: { (NSApp.delegate as? AppDelegate)?.newVoiceNote() }) {
+                            Image(systemName: "mic")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(.secondary)
+                                .frame(width: 22, height: 22)
+                        }
+                        .buttonStyle(.plain)
+                        .help("New voice note (⇧⌘N)")
+                    }
                 }
                 .padding(.horizontal, 12)
                 .padding(.top, 10)
