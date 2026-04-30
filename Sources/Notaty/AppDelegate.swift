@@ -265,7 +265,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func handleStatusItemDrop(_ urls: [URL]) {
-        PendingAttachments.shared.set(urls)
+        PendingAttachments.shared.add(urls)
         // Reveal the window so the user can pick a destination note.
         if let window = windowController.window, !window.isVisible {
             toggleWindow()

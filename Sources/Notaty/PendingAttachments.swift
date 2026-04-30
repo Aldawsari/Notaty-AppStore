@@ -17,10 +17,15 @@ final class PendingAttachments: ObservableObject {
         return "\(urls.count) files"
     }
 
-    /// Replace the pending list. Last-drop-wins semantics: a fresh drop while
-    /// a banner is up replaces the previous URLs.
-    func set(_ newURLs: [URL]) {
-        urls = newURLs
+    /// Append to the shelf. Each drop accumulates; the user can keep dropping
+    /// files onto the menu bar icon before picking a destination, and all
+    /// of them attach to the chosen note. URLs already in the shelf are
+    /// skipped (drop the same file twice → counts once).
+    func add(_ newURLs: [URL]) {
+        let existing = Set(urls)
+        let toAppend = newURLs.filter { !existing.contains($0) }
+        guard !toAppend.isEmpty else { return }
+        urls.append(contentsOf: toAppend)
     }
 
     /// Atomically take the URLs and clear the state. Returns the URLs the
