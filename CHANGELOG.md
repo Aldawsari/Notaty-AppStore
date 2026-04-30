@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Pin window: keep Notaty's window on top until you close it. Toggle "Keep window on top" in Settings → Window. When pinned, the window no longer hides on outside clicks; Esc and the close button still dismiss as usual. Optional quick-toggle pin icon in the tab bar — enable "Show pin button in tab bar" in Settings if you want one-click access from the window itself.
+
 ## v1.2.1
 
 - Added Intel Mac support (Universal binary)
