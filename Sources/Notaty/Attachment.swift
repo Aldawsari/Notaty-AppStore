@@ -25,7 +25,8 @@ struct Attachment: Identifiable, Codable, Equatable {
         ["jpg", "jpeg", "png", "gif", "heic", "webp", "tiff", "bmp"].contains(fileExtension)
     }
 
-    /// 3-character display label for non-image type icons (e.g. "PDF", "DOC").
+    /// Up-to-4-character uppercase label for non-image type icons (e.g. "PDF",
+    /// "DOC", "DOCX", "HEIC"). Falls back to "FILE" when no extension exists.
     var typeLabel: String {
         let ext = fileExtension
         if ext.isEmpty { return "FILE" }
