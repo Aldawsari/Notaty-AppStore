@@ -76,9 +76,15 @@ final class NotesStore: ObservableObject {
     func delete(id: UUID) {
         guard let index = indexByID[id] else { return }
         let note = notes[index]
+        // Cascade: remove the audio sidecar (voice notes) and all attachment
+        // sidecars (text notes can have any number).
         if note.type == .voice, let filename = note.audioFilename {
             let audioURL = Self.audioDir.appendingPathComponent(filename)
             try? FileManager.default.removeItem(at: audioURL)
+        }
+        for attachment in note.attachments {
+            let url = Self.attachmentURL(for: attachment)
+            try? FileManager.default.removeItem(at: url)
         }
         notes.remove(at: index)
         rebuildIndex()
@@ -155,6 +161,21 @@ final class NotesStore: ObservableObject {
         guard !added.isEmpty else { return 0 }
         update(id: noteID) { $0.attachments.append(contentsOf: added) }
         return added.count
+    }
+
+    /// Remove a single attachment from a note: deletes the sidecar file from
+    /// disk, then drops the metadata from the note's array.
+    func removeAttachment(_ attachmentID: UUID, from noteID: UUID) {
+        guard let note = self.note(for: noteID),
+              let target = note.attachments.first(where: { $0.id == attachmentID })
+        else { return }
+
+        let url = Self.attachmentURL(for: target)
+        try? FileManager.default.removeItem(at: url)
+
+        update(id: noteID) {
+            $0.attachments.removeAll { $0.id == attachmentID }
+        }
     }
 
     func note(for id: UUID) -> Note? {
