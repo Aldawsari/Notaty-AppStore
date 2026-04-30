@@ -48,8 +48,13 @@ struct AttachmentStripView: View {
                     }
                 )
                 .onDrag {
+                    // Register the URL itself (not the file's contents) so
+                    // internal drop targets like other tabs receive the
+                    // original path. NSItemProvider(contentsOf:) would
+                    // expose a temp-file copy instead, breaking our internal
+                    // "move attachment between notes" detection by storedName.
                     let url = NotesStore.attachmentURL(for: attachment)
-                    let provider = NSItemProvider(contentsOf: url) ?? NSItemProvider()
+                    let provider = NSItemProvider(object: url as NSURL)
                     provider.suggestedName = attachment.originalName
                     return provider
                 }
