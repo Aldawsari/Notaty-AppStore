@@ -190,43 +190,28 @@ The existing `notes.json` is read into memory eagerly on launch. Embedding even 
 
 ## Localization
 
-New strings (EN + AR):
+**English-only for this release.** Notaty has no `Localizable.xcstrings` catalog, no `String(localized:)` UI calls, no AppleLanguages plumbing. Hardcoded English strings throughout. Adding partial localization for just the attachment strings would create a half-localized UI that's weirder than none.
 
-| Key | EN | AR |
-|---|---|---|
-| `attach.tooltip` | Attach file | إرفاق ملف |
-| `attach.menu` | Attach File… | إرفاق ملف… |
-| `attach.warning.large.title` | Large attachment | ملف كبير |
-| `attach.warning.large.body` | Large attachments make note backups slower. | الملفات الكبيرة تبطئ النسخ الاحتياطي للملاحظات. |
-| `attach.error.copy.title` | Could not attach file | تعذّر إرفاق الملف |
-| `attach.error.copy.body` | %@ could not be copied. Make sure Notaty has permission and that disk space is available. | تعذّر نسخ %@. تأكّد من أن لدى Notaty الإذن وأن هناك مساحة قرص كافية. |
+A full Notaty l10n effort (mirroring the Taqweem v1.6 work) is tracked as a separate future project, not part of this spec.
 
-Add to `Localizable.xcstrings`. The build pipeline already compiles xcstrings into lproj at build time per the existing `build.sh`.
+UI strings introduced by this feature:
+
+| Site | English |
+|---|---|
+| Paperclip tooltip | "Attach file" |
+| File picker prompt | "Attach Files" |
+| Large-file warning title | "Large attachment" |
+| Large-file warning body | "Large attachments make note backups slower." |
+| Copy-error title | "Could not attach file" |
+| Copy-error body | "%@ could not be copied. Make sure Notaty has permission and that disk space is available." |
 
 ---
 
 ## Tests
 
-Following the existing test target pattern:
+**No automated tests for this release.** Notaty currently has no test target — voice notes, OCR, drag-to-reorder, transcription all shipped without tests, following the same precedent. Adding a test target is tracked as a separate future housekeeping project.
 
-### `AttachmentStoreTests`
-- Add an attachment from a tmp source URL → file appears in `attachmentsDir`, metadata in note
-- Remove an attachment → file deleted from disk, metadata gone
-- Add three, remove the middle one → remaining two intact
-- Delete a note with two attachments → both sidecar files deleted
-
-### `NoteCodingTests`
-- Decode a v1.2.1 `notes.json` that has no `attachments` field → decodes successfully, `attachments == []`
-- Round-trip: encode, decode, equality holds
-- Decode a note with three attachments → metadata preserved exactly
-
-### `AttachmentOrphanSweepTests`
-- Drop an unreferenced file in `attachmentsDir`, run sweep → file removed
-- Files referenced by any note → preserved
-
-### `AttachmentImportExportTests`
-- Export zip with notes containing attachments → zip contains `attachments/<UUID>.<ext>` paths
-- Import the same zip on a fresh state → notes + attachments restored exactly
+Validation for this feature relies on the **acceptance criteria checklist** below (manual verification during implementation) and the existing release process (build → smoke test → tag).
 
 ---
 
@@ -245,7 +230,7 @@ The feature is "done" when all of these are observable in a debug build:
 9. Quitting and relaunching Notaty restores all attachments — chips render, files openable.
 10. Existing v1.2.1 notes (no `attachments` field) load without crashing or losing data.
 11. Existing zip export / import flow round-trips attachments cleanly.
-12. Arabic localization renders correctly: paperclip tooltip in Arabic, RTL layout intact, large-file warning translated.
+12. Build with `swift build -c release` succeeds; running the produced binary shows the new behavior.
 
 ---
 
@@ -261,7 +246,9 @@ The feature is "done" when all of these are observable in a debug build:
 
 ## Out of scope, follow-ups
 
-- Voice-note attachments (option B from the design brainstorm) — user asked to be reminded.
-- Inline image rendering in body — would require a rich text body, separate spec.
-- Attachment search — not in this release. Consider once the feature is in users' hands.
-- Per-attachment annotations / captions — same.
+- **Voice-note attachments** (option B from the design brainstorm) — user asked to be reminded.
+- **Notaty Arabic localization** — separate project, mirroring the Taqweem v1.6 effort (xcstrings catalog, AppleLanguages, RTL, fonts).
+- **Test target for Notaty** — separate housekeeping project; would cover this feature plus existing voice notes / drag-to-reorder / etc.
+- **Inline image rendering in body** — would require a rich text body, separate spec.
+- **Attachment search** — not in this release. Consider once the feature is in users' hands.
+- **Per-attachment annotations / captions** — same.
