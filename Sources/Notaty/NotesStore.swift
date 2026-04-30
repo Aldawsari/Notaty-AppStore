@@ -315,4 +315,13 @@ final class NotesStore: ObservableObject {
             try? FileManager.default.removeItem(at: entry)
         }
     }
+
+    /// Used by the importer after directly mutating `notes` to re-establish
+    /// the ID→index map. Triggers persistence via the existing $notes sink.
+    func rebuildIndexAfterImport() {
+        rebuildIndex()
+        // Touch `notes` so the debounced save sink fires.
+        let snapshot = notes
+        notes = snapshot
+    }
 }

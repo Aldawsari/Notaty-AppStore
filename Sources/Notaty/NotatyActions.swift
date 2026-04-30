@@ -142,7 +142,6 @@ enum NotatyActions {
         do {
             try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
 
-            // Unzip using ditto
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
             process.arguments = ["-x", "-k", url.path, tempDir.path]
@@ -158,7 +157,17 @@ enum NotatyActions {
                 return
             }
 
-            // Find all .txt files recursively
+            // Prefer the manifest if present (round-trips attachments).
+            // Fall back to .txt-only for old/foreign zips.
+            if let importedFromManifest = importFromManifestIfAvailable(in: tempDir) {
+                if importedFromManifest > 0 {
+                    NotesStore.shared.selectedID = NotesStore.shared.notes.last?.id
+                }
+                try? FileManager.default.removeItem(at: tempDir)
+                return
+            }
+
+            // Legacy .txt-only path (pre-attachments exports).
             let enumerator = FileManager.default.enumerator(at: tempDir, includingPropertiesForKeys: nil)
             var imported = 0
 
@@ -166,7 +175,6 @@ enum NotatyActions {
                 guard fileURL.pathExtension.lowercased() == "txt" else { continue }
                 guard let text = try? String(contentsOf: fileURL, encoding: .utf8) else { continue }
 
-                // Strip numbering prefix like "1 - " from export filenames
                 var title = fileURL.deletingPathExtension().lastPathComponent
                 if let range = title.range(of: #"^\d+\s*-\s*"#, options: .regularExpression) {
                     title = String(title[range.upperBound...])
@@ -186,12 +194,53 @@ enum NotatyActions {
             }
 
             try? FileManager.default.removeItem(at: tempDir)
-
         } catch {
             let alert = NSAlert(error: error)
             alert.runModal()
             try? FileManager.default.removeItem(at: tempDir)
         }
+    }
+
+    /// Returns the number of notes imported, or `nil` if no manifest was found.
+    /// When found, copies each attachment file into Notaty's attachments dir
+    /// and pushes the full Note structures (with attachments[]) into the store.
+    private static func importFromManifestIfAvailable(in tempDir: URL) -> Int? {
+        let manifestURL = tempDir.appendingPathComponent("_manifest.json")
+        guard FileManager.default.fileExists(atPath: manifestURL.path),
+              let data = try? Data(contentsOf: manifestURL),
+              let importedNotes = try? JSONDecoder().decode([Note].self, from: data)
+        else {
+            return nil
+        }
+
+        // Restore attachment files into Notaty's attachments dir.
+        NotesStore.shared.ensureAttachmentsDir()
+        let exportAttachmentsDir = tempDir.appendingPathComponent("attachments")
+
+        for note in importedNotes {
+            for attachment in note.attachments {
+                let src = exportAttachmentsDir.appendingPathComponent(attachment.storedName)
+                let dest = NotesStore.attachmentURL(for: attachment)
+                if FileManager.default.fileExists(atPath: src.path),
+                   !FileManager.default.fileExists(atPath: dest.path) {
+                    try? FileManager.default.copyItem(at: src, to: dest)
+                }
+            }
+        }
+
+        // Append (don't replace) — same semantics as the .txt path.
+        let store = NotesStore.shared
+        for note in importedNotes {
+            store.notes.append(note)
+        }
+        // Force the index rebuild + persistence by triggering a published change
+        // (mutating notes via `append` directly bypasses indexByID; the store's
+        // existing helpers do this on add/delete. For import, call `addNote`
+        // dance is wrong because we want to preserve the original IDs. So we
+        // do it manually:)
+        store.rebuildIndexAfterImport()  // see Step 2
+
+        return importedNotes.count
     }
 
     @MainActor
