@@ -35,7 +35,8 @@ struct NoteView: View {
 
                 NoteTextEditor(
                     text: store.textBinding(for: noteID),
-                    directionMode: note?.direction ?? .auto
+                    directionMode: note?.direction ?? .auto,
+                    noteID: noteID
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
