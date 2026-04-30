@@ -49,6 +49,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.applyDefaultSize(preset.size, reposition: true)
             }
 
+        // Clear any pending menu-bar drop when the window closes.
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification,
+            object: windowController.window,
+            queue: .main
+        ) { _ in
+            PendingAttachments.shared.clear()
+        }
+
         // Run once on launch: drop any attachment file no longer referenced
         // by a note's metadata.
         NotesStore.shared.cleanupOrphanedAttachmentFiles()
@@ -229,6 +238,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func hideWindow() {
+        PendingAttachments.shared.clear()
         guard let window = windowController.window, window.isVisible else { return }
         removeDismissMonitors()
         NSAnimationContext.runAnimationGroup({ context in
@@ -275,6 +285,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         localEscMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             if event.keyCode == 53 && event.window === self?.windowController.window {
+                PendingAttachments.shared.clear()
                 self?.hideWindow()
                 return nil
             }
