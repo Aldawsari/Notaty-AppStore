@@ -2,9 +2,16 @@ import SwiftUI
 
 struct NotatyRootView: View {
     @ObservedObject private var store = NotesStore.shared
+    @ObservedObject private var pending = PendingAttachments.shared
 
     var body: some View {
         VStack(spacing: 0) {
+            if pending.isPending {
+                MenuBarDropBanner(
+                    description: pending.description,
+                    onCancel: { pending.clear() }
+                )
+            }
             TabBar(store: store)
             Divider()
                 .opacity(0.5)
@@ -42,6 +49,20 @@ private struct TabBar: View {
         AttachmentImporter.openPicker(targetNoteID: id)
     }
 
+    /// Creates a new note. If there are pending attachments from a menu bar
+    /// drop, attaches them to the new note.
+    private func handleNewNote() {
+        let new = store.addNote()
+        let pending = PendingAttachments.shared.consume()
+        if !pending.isEmpty {
+            // Defer one runloop tick so the new note is fully registered in
+            // NotesStore.indexByID before addAttachments is called.
+            DispatchQueue.main.async {
+                AttachmentImporter.attach(urls: pending, to: new.id)
+            }
+        }
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             TabStrip(store: store)
@@ -56,7 +77,7 @@ private struct TabBar: View {
             .help("Attach file (⌥⌘A)")
             .disabled(activeNoteIsTextNote == false)
 
-            Button(action: { store.addNote() }) {
+            Button(action: handleNewNote) {
                 Image(systemName: "plus")
                     .font(.system(size: 12, weight: .semibold))
                     .frame(width: 24, height: 22)
@@ -266,7 +287,15 @@ private struct TabButton: View {
         )
         .opacity(isDragging ? 0.4 : 1.0)
         .contentShape(Rectangle())
-        .onTapGesture { store.select(note.id) }
+        .onTapGesture {
+            store.select(note.id)
+            let pending = PendingAttachments.shared.consume()
+            if !pending.isEmpty {
+                DispatchQueue.main.async {
+                    AttachmentImporter.attach(urls: pending, to: note.id)
+                }
+            }
+        }
     }
 
     private func confirmDelete() {
