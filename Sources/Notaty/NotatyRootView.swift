@@ -36,14 +36,16 @@ private struct TabBar: View {
             TabStrip(store: store)
                 .frame(maxWidth: .infinity)
 
-            Button(action: { Settings.shared.pinned.toggle() }) {
-                Image(systemName: settings.pinned ? "pin.fill" : "pin")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(settings.pinned ? .accentColor : .secondary)
-                    .frame(width: 24, height: 22)
+            if settings.showPinButton {
+                Button(action: { Settings.shared.pinned.toggle() }) {
+                    Image(systemName: settings.pinned ? "pin.fill" : "pin")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(settings.pinned ? .accentColor : .secondary)
+                        .frame(width: 24, height: 22)
+                }
+                .buttonStyle(.plain)
+                .help(settings.pinned ? "Unpin window" : "Pin window on top")
             }
-            .buttonStyle(.plain)
-            .help(settings.pinned ? "Unpin window" : "Pin window on top")
 
             Button(action: { store.addNote() }) {
                 Image(systemName: "plus")

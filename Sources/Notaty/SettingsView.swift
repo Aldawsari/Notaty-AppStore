@@ -38,6 +38,11 @@ struct SettingsView: View {
                         rowLabel("Keep window on top")
                     }
                     .toggleStyle(.switch)
+
+                    Toggle(isOn: $settings.showPinButton) {
+                        rowLabel("Show pin button in tab bar")
+                    }
+                    .toggleStyle(.switch)
                 }
 
                 // ── General ─────────────────────────────────────────────
