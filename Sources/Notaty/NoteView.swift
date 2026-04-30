@@ -31,6 +31,8 @@ struct NoteView: View {
 
                 Divider()
 
+                AttachmentStripView(noteID: noteID)
+
                 NoteTextEditor(
                     text: store.textBinding(for: noteID),
                     directionMode: note?.direction ?? .auto
