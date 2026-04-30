@@ -228,9 +228,13 @@ enum NotatyActions {
             }
         }
 
-        // Append (don't replace) — same semantics as the .txt path.
+        // Append (don't replace) — same semantics as the .txt path. Dedupe
+        // by ID so that re-importing a zip whose notes are still in the
+        // store doesn't crash rebuildIndex's Dictionary(uniqueKeysWithValues:).
         let store = NotesStore.shared
-        for note in importedNotes {
+        let existingIDs = Set(store.notes.map(\.id))
+        let toAppend = importedNotes.filter { !existingIDs.contains($0.id) }
+        for note in toAppend {
             store.notes.append(note)
         }
         // Force the index rebuild + persistence by triggering a published change
@@ -238,9 +242,9 @@ enum NotatyActions {
         // existing helpers do this on add/delete. For import, call `addNote`
         // dance is wrong because we want to preserve the original IDs. So we
         // do it manually:)
-        store.rebuildIndexAfterImport()  // see Step 2
+        store.rebuildIndexAfterImport()
 
-        return importedNotes.count
+        return toAppend.count
     }
 
     @MainActor
