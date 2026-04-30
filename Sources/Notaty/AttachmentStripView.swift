@@ -1,16 +1,14 @@
 import SwiftUI
 import AppKit
-import UniformTypeIdentifiers
 
-/// In-process UTI for dragging a multi-selection of attachment chips.
-/// Carries a JSON-encoded array of storedName strings (one per selected chip),
-/// in the order they appear in the strip. Internal use only — not registered
-/// system-wide because we never accept this from another app.
-extension UTType {
-    static let notatyAttachmentSelection = UTType(
-        exportedAs: "com.notaty.attachment-selection",
-        conformingTo: .data
-    )
+/// Tracks an in-progress multi-chip drag. Set when a chip in a multi-selection
+/// starts dragging; read by drop receivers to know they should move the whole
+/// group rather than just the single dragged chip. Cleared by the next drag
+/// (whether single or multi) so it never leaks across operations.
+final class MultiDragState {
+    static let shared = MultiDragState()
+    var pendingStoredNames: [String] = []
+    private init() {}
 }
 
 struct AttachmentStripView: View {
@@ -64,32 +62,23 @@ struct AttachmentStripView: View {
                 .onDrag {
                     // Register the URL itself (not the file's contents) so
                     // internal drop targets like other tabs receive the
-                    // original path. NSItemProvider(contentsOf:) would
-                    // expose a temp-file copy instead, breaking our internal
-                    // "move attachment between notes" detection by storedName.
+                    // original path.
                     let url = NotesStore.attachmentURL(for: attachment)
                     let provider = NSItemProvider(object: url as NSURL)
                     provider.suggestedName = attachment.originalName
 
-                    // If this chip is part of a multi-selection, also register
-                    // a manifest of all selected storedNames so the drop
-                    // receiver can move them all together. The dragged chip
-                    // itself is included in the manifest, so the URL
-                    // representation is ignored when the manifest is present.
+                    // If this chip is part of a multi-selection, stash the
+                    // full list of selected storedNames so the drop receiver
+                    // can move them all together. We always overwrite
+                    // (including clearing) on every drag, so stale state from
+                    // a cancelled drag never leaks to a fresh single drag.
                     let inMultiSelection = selectedIDs.contains(attachment.id) && selectedIDs.count > 1
                     if inMultiSelection {
-                        let storedNames = attachments
+                        MultiDragState.shared.pendingStoredNames = attachments
                             .filter { selectedIDs.contains($0.id) }
                             .map(\.storedName)
-                        if let data = try? JSONEncoder().encode(storedNames) {
-                            provider.registerDataRepresentation(
-                                forTypeIdentifier: UTType.notatyAttachmentSelection.identifier,
-                                visibility: .ownProcess
-                            ) { completion in
-                                completion(data, nil)
-                                return nil
-                            }
-                        }
+                    } else {
+                        MultiDragState.shared.pendingStoredNames = []
                     }
                     return provider
                 }
