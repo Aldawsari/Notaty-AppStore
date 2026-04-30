@@ -48,7 +48,8 @@ enum NotatyActions {
                 .appendingPathComponent(UUID().uuidString)
             try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
 
-            // Write each note as a .txt file
+            // Human-readable .txt files (preserved for backward compat —
+            // users who unzip with Finder still see readable text).
             for (index, note) in notes.enumerated() {
                 let trimmed = note.title.trimmingCharacters(in: .whitespacesAndNewlines)
                 let safeName = (trimmed.isEmpty ? "Untitled" : trimmed)
@@ -57,6 +58,26 @@ enum NotatyActions {
                 let fileName = "\(index + 1) - \(safeName).txt"
                 let fileURL = tempDir.appendingPathComponent(fileName)
                 try note.text.write(to: fileURL, atomically: true, encoding: .utf8)
+            }
+
+            // Manifest with full structured data — this is what Notaty itself
+            // reads on import to round-trip attachments. Older Notaty versions
+            // (pre-attachments) ignore the manifest and just import the .txt.
+            let manifestURL = tempDir.appendingPathComponent("_manifest.json")
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            try encoder.encode(notes).write(to: manifestURL, options: .atomic)
+
+            // Copy each attachment file into the export tree, preserving
+            // the storedName (so the manifest's references resolve).
+            let attachmentsExportDir = tempDir.appendingPathComponent("attachments")
+            try FileManager.default.createDirectory(at: attachmentsExportDir, withIntermediateDirectories: true)
+            for note in notes {
+                for attachment in note.attachments {
+                    let src = NotesStore.attachmentURL(for: attachment)
+                    let dest = attachmentsExportDir.appendingPathComponent(attachment.storedName)
+                    try? FileManager.default.copyItem(at: src, to: dest)
+                }
             }
 
             // Create zip using ditto (macOS built-in, preserves Unicode filenames)
