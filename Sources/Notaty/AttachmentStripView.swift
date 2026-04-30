@@ -31,7 +31,9 @@ struct AttachmentStripView: View {
                 )
                 .onDrag {
                     let url = NotesStore.attachmentURL(for: attachment)
-                    return NSItemProvider(contentsOf: url) ?? NSItemProvider()
+                    let provider = NSItemProvider(contentsOf: url) ?? NSItemProvider()
+                    provider.suggestedName = attachment.originalName
+                    return provider
                 }
             }
         }
