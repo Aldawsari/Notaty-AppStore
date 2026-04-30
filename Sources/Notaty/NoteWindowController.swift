@@ -51,6 +51,10 @@ final class NoteWindowController: NSWindowController {
         window.backgroundColor = NSColor.windowBackgroundColor
         window.contentViewController = NSHostingController(rootView: NotatyRootView())
 
+        // Pin button lives in the titlebar (right side). Window-state controls
+        // belong in the chrome, not in the content area's tab bar.
+        window.addTitlebarAccessoryViewController(PinTitlebarAccessoryViewController())
+
         super.init(window: window)
 
         // Keep the window title in sync with the currently selected note's
