@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import QuickLookUI
 import Sparkle
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -426,5 +427,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         let y = visible.maxY - size.height
         window.setFrameOrigin(NSPoint(x: x, y: y))
+    }
+}
+
+extension AppDelegate {
+    override func acceptsPreviewPanelControl(_ panel: QLPreviewPanel!) -> Bool {
+        true
+    }
+
+    override func beginPreviewPanelControl(_ panel: QLPreviewPanel!) {
+        panel.dataSource = AttachmentPreviewCoordinator.shared
+        panel.delegate = AttachmentPreviewCoordinator.shared
+    }
+
+    override func endPreviewPanelControl(_ panel: QLPreviewPanel!) {
+        panel.dataSource = nil
+        panel.delegate = nil
     }
 }

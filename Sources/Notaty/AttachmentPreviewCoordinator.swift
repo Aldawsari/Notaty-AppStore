@@ -1,10 +1,16 @@
 import AppKit
 import QuickLookUI
 
-/// Holds the array currently being previewed and serves it to QLPreviewPanel.
-/// Implemented as a class because QLPreviewPanel data source is an Obj-C protocol.
-final class AttachmentPreviewCoordinator: NSObject, ObservableObject, QLPreviewPanelDataSource, QLPreviewPanelDelegate {
-    private var items: [Attachment] = []
+/// Holds the attachments currently being previewed and vends them to
+/// QLPreviewPanel. Conforms to QLPreviewPanelDataSource + delegate.
+///
+/// QLPreviewPanel is an app-singleton; the responder chain decides which
+/// object answers `acceptsPreviewPanelControl(_:)`. We have AppDelegate
+/// answer "yes" and route the panel to this coordinator.
+final class AttachmentPreviewCoordinator: NSObject, ObservableObject {
+    static let shared = AttachmentPreviewCoordinator()
+
+    private(set) var items: [Attachment] = []
     private var startID: UUID?
 
     func show(attachments: [Attachment], startAt id: UUID) {
@@ -12,11 +18,16 @@ final class AttachmentPreviewCoordinator: NSObject, ObservableObject, QLPreviewP
         self.startID = id
 
         guard let panel = QLPreviewPanel.shared() else { return }
-        panel.dataSource = self
-        panel.delegate = self
         panel.makeKeyAndOrderFront(nil)
-    }
+        panel.reloadData()
 
+        if let i = items.firstIndex(where: { $0.id == id }) {
+            panel.currentPreviewItemIndex = i
+        }
+    }
+}
+
+extension AttachmentPreviewCoordinator: QLPreviewPanelDataSource, QLPreviewPanelDelegate {
     func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int {
         items.count
     }

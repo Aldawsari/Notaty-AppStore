@@ -6,7 +6,7 @@ struct AttachmentStripView: View {
 
     /// Coordinator owned by the strip; passed down to chips so Quick Look has
     /// a single retained data source for the panel.
-    @StateObject private var preview = AttachmentPreviewCoordinator()
+    private let preview = AttachmentPreviewCoordinator.shared
 
     private var attachments: [Attachment] {
         store.note(for: noteID)?.attachments ?? []
