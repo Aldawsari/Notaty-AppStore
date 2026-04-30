@@ -4,12 +4,10 @@ import ImageIO
 
 struct AttachmentChipView: View {
     let attachment: Attachment
+    let isSelected: Bool
+    let onSelect: () -> Void
+    let onOpen: () -> Void
     let onRemove: () -> Void
-    let onSingleClick: () -> Void
-    let onDoubleClick: () -> Void
-
-    @State private var isHovering: Bool = false
-    @State private var pendingSingleClick: DispatchWorkItem?
 
     var body: some View {
         HStack(spacing: 8) {
@@ -32,50 +30,32 @@ struct AttachmentChipView: View {
             .contentShape(Rectangle())
             .gesture(
                 ExclusiveGesture(
-                    TapGesture(count: 2).onEnded {
-                        pendingSingleClick?.cancel()
-                        pendingSingleClick = nil
-                        onDoubleClick()
-                    },
-                    TapGesture(count: 1).onEnded {
-                        let work = DispatchWorkItem { onSingleClick() }
-                        pendingSingleClick = work
-                        let delay = NSEvent.doubleClickInterval
-                        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
-                    }
+                    TapGesture(count: 2).onEnded { onOpen() },
+                    TapGesture(count: 1).onEnded { onSelect() }
                 )
             )
 
-            // × button — sibling of the gesture-receiving HStack, NOT a child.
-            // This is the structural fix for the bug: the parent gesture
-            // does not extend over the × button's frame, so clicking ×
-            // only fires the Button's action, never the parent gesture.
-            if isHovering {
-                Button(action: {
-                    pendingSingleClick?.cancel()
-                    pendingSingleClick = nil
-                    onRemove()
-                }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 14))
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.plain)
-                .help("Remove attachment")
+            // × button — always visible, sibling of the gesture-receiving HStack.
+            Button(action: onRemove) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 14))
+                    .foregroundColor(.secondary)
             }
+            .buttonStyle(.plain)
+            .help("Remove attachment")
         }
         .padding(.vertical, 6)
         .padding(.horizontal, 10)
         .background(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color(NSColor.controlBackgroundColor))
+                .fill(isSelected ? Color.accentColor.opacity(0.18) : Color(NSColor.controlBackgroundColor))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(Color(NSColor.separatorColor), lineWidth: 1)
+                .strokeBorder(isSelected ? Color.accentColor : Color(NSColor.separatorColor),
+                              lineWidth: isSelected ? 1.5 : 1)
         )
         .shadow(color: .black.opacity(0.04), radius: 1, y: 1)
-        .onHover { isHovering = $0 }
     }
 
     @ViewBuilder
@@ -91,17 +71,13 @@ struct AttachmentChipView: View {
         }
     }
 
-    /// Decode a small thumbnail from the on-disk file. We bypass NSImage's
-    /// default behavior of loading the full image by using ImageIO to ask
-    /// for a thumbnail of the right pixel size. Returns nil for non-image
-    /// files or decode failures.
     private var imageThumbnail: NSImage? {
         let url = NotesStore.attachmentURL(for: attachment)
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
         let options: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
             kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceThumbnailMaxPixelSize: 56,  // 28pt @2x
+            kCGImageSourceThumbnailMaxPixelSize: 56,
             kCGImageSourceCreateThumbnailWithTransform: true,
         ]
         guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)

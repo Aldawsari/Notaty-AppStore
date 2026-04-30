@@ -1,11 +1,14 @@
 import SwiftUI
+import AppKit
 
 struct AttachmentStripView: View {
     let noteID: UUID
     @ObservedObject private var store = NotesStore.shared
 
-    /// Coordinator owned by the strip; passed down to chips so Quick Look has
-    /// a single retained data source for the panel.
+    /// Currently-selected chip. Persists across re-renders. Cleared when the
+    /// selected attachment is removed or the user clicks an empty strip area.
+    @State private var selectedID: UUID?
+
     private let preview = AttachmentPreviewCoordinator.shared
 
     private var attachments: [Attachment] {
@@ -17,6 +20,7 @@ struct AttachmentStripView: View {
             EmptyView()
         } else {
             stripContent
+                .background(SpaceKeyMonitor(isEnabled: selectedID != nil) { handleSpacebar() })
         }
     }
 
@@ -25,9 +29,23 @@ struct AttachmentStripView: View {
             ForEach(attachments) { attachment in
                 AttachmentChipView(
                     attachment: attachment,
-                    onRemove: { store.removeAttachment(attachment.id, from: noteID) },
-                    onSingleClick: { preview.show(attachments: attachments, startAt: attachment.id) },
-                    onDoubleClick: { NSWorkspace.shared.open(NotesStore.attachmentURL(for: attachment)) }
+                    isSelected: selectedID == attachment.id,
+                    onSelect: {
+                        selectedID = attachment.id
+                        // Move first responder away from the text editor so the
+                        // spacebar key event reaches our SpaceKeyMonitor instead
+                        // of the text view (where it would type a space).
+                        NSApp.keyWindow?.makeFirstResponder(nil)
+                    },
+                    onOpen: {
+                        NSWorkspace.shared.open(NotesStore.attachmentURL(for: attachment))
+                    },
+                    onRemove: {
+                        if selectedID == attachment.id {
+                            selectedID = nil
+                        }
+                        store.removeAttachment(attachment.id, from: noteID)
+                    }
                 )
                 .onDrag {
                     let url = NotesStore.attachmentURL(for: attachment)
@@ -46,6 +64,12 @@ struct AttachmentStripView: View {
                 .frame(height: 1),
             alignment: .bottom
         )
+    }
+
+    private func handleSpacebar() {
+        guard let id = selectedID,
+              let attachment = attachments.first(where: { $0.id == id }) else { return }
+        preview.show(attachments: attachments, startAt: attachment.id)
     }
 }
 
@@ -90,6 +114,70 @@ struct FlowLayout: Layout {
             subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
             x += size.width + spacing
             rowHeight = max(rowHeight, size.height)
+        }
+    }
+}
+
+/// Installs an NSEvent local monitor for the spacebar key. Fires `onSpace`
+/// only when (a) `isEnabled` is true and (b) the current first responder is
+/// NOT an NSText (so the user can still type spaces in the body editor).
+/// Returns nil from the monitor (event consumed) when both conditions hold.
+private struct SpaceKeyMonitor: NSViewRepresentable {
+    let isEnabled: Bool
+    let onSpace: () -> Void
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        context.coordinator.install(onSpace: onSpace)
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        context.coordinator.isEnabled = isEnabled
+        context.coordinator.onSpace = onSpace
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(isEnabled: isEnabled) }
+
+    static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
+        coordinator.uninstall()
+    }
+
+    final class Coordinator {
+        var isEnabled: Bool
+        var onSpace: () -> Void = {}
+        private var monitor: Any?
+
+        init(isEnabled: Bool) {
+            self.isEnabled = isEnabled
+        }
+
+        func install(onSpace: @escaping () -> Void) {
+            self.onSpace = onSpace
+            // 49 = kVK_Space
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                guard let self else { return event }
+                guard self.isEnabled else { return event }
+                guard event.keyCode == 49 else { return event }
+                // Defer to text-input first responders so spaces still type.
+                if let responder = NSApp.keyWindow?.firstResponder,
+                   responder is NSText || responder.isKind(of: NSText.self) {
+                    return event
+                }
+                self.onSpace()
+                return nil
+            }
+        }
+
+        func uninstall() {
+            if let monitor {
+                NSEvent.removeMonitor(monitor)
+                self.monitor = nil
+            }
+        }
+
+        deinit {
+            uninstall()
         }
     }
 }
