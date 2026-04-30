@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- File attachments on text notes. Click the new paperclip in the tab bar (or press ⌥⌘A) to attach files; you can also drag-drop from Finder onto a note, or paste a copied file with ⌘V. Each attachment shows as a chip below the note title with a thumbnail, name, and size. Click a chip to select it, press Space to preview with Quick Look, double-click to open in the default app. Drag a chip back to Finder to copy it out. Attachments survive launches and are included in zip export/import.
+- File attachments on text notes. Attach files by: clicking the new paperclip in the tab bar, pressing ⌥⌘A, dragging from Finder onto a note, pasting a copied file with ⌘V, or **dropping files onto the Notaty menu bar icon**. Menu bar drop opens the window with a banner showing every file you've dropped — keep dropping to add more, then click any tab or ＋ to attach the whole shelf to that note (or × individual files to remove them from the shelf). Each attachment renders as a chip below the note title with a thumbnail, name, and size. Click a chip to select it, press Space to preview with Quick Look, double-click to open in the default app. Drag a chip back to Finder to copy it out. Attachments survive launches and are included in zip export/import.
 
 ## v1.2.1
 
