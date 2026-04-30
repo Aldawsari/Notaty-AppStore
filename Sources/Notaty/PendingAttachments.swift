@@ -41,5 +41,10 @@ final class PendingAttachments: ObservableObject {
         urls = []
     }
 
+    /// Remove a single URL from the shelf. Used by the per-file × in the banner.
+    func remove(_ url: URL) {
+        urls.removeAll { $0 == url }
+    }
+
     private init() {}
 }

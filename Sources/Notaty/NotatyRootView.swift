@@ -8,8 +8,9 @@ struct NotatyRootView: View {
         VStack(spacing: 0) {
             if pending.isPending {
                 MenuBarDropBanner(
-                    description: pending.description,
-                    onCancel: { pending.clear() }
+                    urls: pending.urls,
+                    onCancel: { pending.clear() },
+                    onRemove: { pending.remove($0) }
                 )
             }
             TabBar(store: store)
