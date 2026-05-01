@@ -32,6 +32,7 @@ final class RecordingSession: ObservableObject {
     /// Start a new recording targeted at the given note. If a recording is
     /// already active, this is a no-op (the global lock prevents concurrent
     /// recordings, but defend the API anyway).
+    @MainActor
     func start(in noteID: UUID) {
         guard !isActive else { return }
         NotesStore.shared.ensureAttachmentsDir()
@@ -44,8 +45,14 @@ final class RecordingSession: ObservableObject {
     /// Stop the active recording. Finalizes the file, builds an Attachment
     /// record, and appends it to the originating note. Returns the new
     /// attachment's storedName on success, nil on failure.
+    @MainActor
     @discardableResult
     func stop() -> String? {
+        // Capture noteID locally before stopRecording(): stopRecording sets
+        // recorder.isRecording = false synchronously, which fires the Combine
+        // sink that nullifies currentNoteID. The sink hops via DispatchQueue.main
+        // (always async-deferred), so currentNoteID is still valid when read here,
+        // but the local binding makes us robust if that hop is ever removed.
         guard isActive, let noteID = currentNoteID else { return nil }
         guard let url = recorder.stopRecording() else { return nil }
         let storedName = url.lastPathComponent
