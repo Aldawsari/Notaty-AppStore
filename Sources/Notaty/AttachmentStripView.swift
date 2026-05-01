@@ -149,25 +149,20 @@ struct AttachmentStripView: View {
     @MainActor
     private func transcribeAndInsert(_ attachment: Attachment) {
         let url = NotesStore.attachmentURL(for: attachment)
-        Task {
+        Task { @MainActor in
             do {
                 let transcript = try await SpeechTranscriber.transcribe(audioURL: url)
-                await MainActor.run {
-                    let separator = "\n\n---\n"
-                    var current = store.note(for: noteID)?.text ?? ""
-                    if !current.isEmpty { current += separator }
-                    current += transcript
-                    store.update(id: noteID) { $0.text = current }
+                store.update(id: noteID) { note in
+                    if !note.text.isEmpty { note.text += "\n\n---\n" }
+                    note.text += transcript
                 }
             } catch {
-                await MainActor.run {
-                    let alert = NSAlert()
-                    alert.messageText = "Couldn't transcribe"
-                    alert.informativeText = "\(error)"
-                    alert.alertStyle = .warning
-                    alert.addButton(withTitle: "OK")
-                    alert.runModal()
-                }
+                let alert = NSAlert()
+                alert.messageText = "Couldn't transcribe"
+                alert.informativeText = "\(error)"
+                alert.alertStyle = .warning
+                alert.addButton(withTitle: "OK")
+                alert.runModal()
             }
         }
     }
