@@ -17,54 +17,53 @@ struct NoteView: View {
     }
 
     var body: some View {
-        if note?.type == .voice {
-            VoiceNoteView(noteID: noteID)
-        } else {
-            VStack(spacing: 0) {
-                HStack(spacing: 6) {
-                    TextField("Untitled", text: store.titleBinding(for: noteID))
-                        .textFieldStyle(.plain)
-                        .font(.system(size: 14, weight: .semibold))
+        VStack(spacing: 0) {
+            HStack(spacing: 6) {
+                TextField("Untitled", text: store.titleBinding(for: noteID))
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 14, weight: .semibold))
 
-                    Button(action: { AttachmentImporter.openPicker(targetNoteID: noteID) }) {
-                        Image(systemName: "paperclip")
+                Button(action: { AttachmentImporter.openPicker(targetNoteID: noteID) }) {
+                    Image(systemName: "paperclip")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.secondary)
+                        .frame(width: 22, height: 22)
+                }
+                .buttonStyle(.plain)
+                .help("Attach file (⌥⌘A)")
+
+                if Settings.shared.voiceNotesEnabled {
+                    Button(action: { (NSApp.delegate as? AppDelegate)?.newVoiceNote() }) {
+                        Image(systemName: "mic")
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundColor(.secondary)
                             .frame(width: 22, height: 22)
                     }
                     .buttonStyle(.plain)
-                    .help("Attach file (⌥⌘A)")
-
-                    if Settings.shared.voiceNotesEnabled {
-                        Button(action: { (NSApp.delegate as? AppDelegate)?.newVoiceNote() }) {
-                            Image(systemName: "mic")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundColor(.secondary)
-                                .frame(width: 22, height: 22)
-                        }
-                        .buttonStyle(.plain)
-                        .help("New voice note (⇧⌘N)")
-                    }
+                    .help("New voice note (⇧⌘N)")
+                    .disabled(RecordingSession.shared.isActive)
                 }
-                .padding(.horizontal, 12)
-                .padding(.top, 10)
-                .padding(.bottom, 6)
-                .environment(\.layoutDirection, layoutDirection)
-
-                Divider()
-
-                AttachmentStripView(noteID: noteID)
-
-                NoteTextEditor(
-                    text: store.textBinding(for: noteID),
-                    directionMode: note?.direction ?? .auto,
-                    noteID: noteID
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .onDrop(of: [.fileURL], isTargeted: nil) { providers in
-                handleDrop(providers: providers)
-            }
+            .padding(.horizontal, 12)
+            .padding(.top, 10)
+            .padding(.bottom, 6)
+            .environment(\.layoutDirection, layoutDirection)
+
+            Divider()
+
+            RecordingBanner(noteID: noteID)
+
+            AttachmentStripView(noteID: noteID)
+
+            NoteTextEditor(
+                text: store.textBinding(for: noteID),
+                directionMode: note?.direction ?? .auto,
+                noteID: noteID
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+            handleDrop(providers: providers)
         }
     }
 
