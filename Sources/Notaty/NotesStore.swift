@@ -249,7 +249,15 @@ final class NotesStore: ObservableObject {
     }
 
     private func rebuildIndex() {
-        indexByID = Dictionary(uniqueKeysWithValues: notes.enumerated().map { ($1.id, $0) })
+        // Use uniquingKeysWith so a duplicate ID never traps. If duplicates do
+        // appear (corrupt import, manifest bug), keep the latest index — the
+        // caller is responsible for surfacing/repairing the data.
+        let pairs = notes.enumerated().map { ($1.id, $0) }
+        indexByID = Dictionary(pairs, uniquingKeysWith: { _, latest in latest })
+        if indexByID.count != notes.count {
+            NSLog("[Notaty] rebuildIndex: %d duplicate note IDs detected (notes=%d, unique=%d)",
+                  notes.count - indexByID.count, notes.count, indexByID.count)
+        }
     }
 
     private func save(_ value: [Note]) {

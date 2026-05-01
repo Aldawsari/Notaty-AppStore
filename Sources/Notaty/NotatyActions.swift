@@ -229,11 +229,15 @@ enum NotatyActions {
         }
 
         // Append (don't replace) — same semantics as the .txt path. Dedupe
-        // by ID so that re-importing a zip whose notes are still in the
-        // store doesn't crash rebuildIndex's Dictionary(uniqueKeysWithValues:).
+        // both against the existing store AND within the imported batch
+        // itself: a corrupt manifest with internal duplicate IDs used to crash
+        // rebuildIndex (Dictionary uniqueness trap).
         let store = NotesStore.shared
-        let existingIDs = Set(store.notes.map(\.id))
-        let toAppend = importedNotes.filter { !existingIDs.contains($0.id) }
+        var seenIDs = Set(store.notes.map(\.id))
+        var toAppend: [Note] = []
+        for note in importedNotes where seenIDs.insert(note.id).inserted {
+            toAppend.append(note)
+        }
         for note in toAppend {
             store.notes.append(note)
         }
