@@ -58,6 +58,8 @@ struct NoteView: View {
 
             RecordingBanner(noteID: noteID)
 
+            VoiceNoteStripView(noteID: noteID)
+
             AttachmentStripView(noteID: noteID)
 
             NoteTextEditor(
