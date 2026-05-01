@@ -80,6 +80,13 @@ struct SettingsView: View {
                             .labelsHidden()
                             .frame(width: 160)
                         }
+
+                        Divider()
+
+                        Toggle(isOn: $settings.autoTranscribe) {
+                            rowLabel("Transcribe automatically")
+                        }
+                        .toggleStyle(.switch)
                     }
                 }
 
