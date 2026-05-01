@@ -16,6 +16,7 @@ final class AudioRecorder: NSObject, ObservableObject, AVAudioRecorderDelegate {
     private static let meteringInterval: TimeInterval = 0.05
 
     func startRecording(to url: URL) {
+        guard recorder == nil else { return }
         let settings: [String: Any] = [
             AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
             AVSampleRateKey: 44100,
@@ -32,9 +33,11 @@ final class AudioRecorder: NSObject, ObservableObject, AVAudioRecorderDelegate {
             startTime = Date()
             elapsedTime = 0
             recentLevels = []
-            timer = Timer.scheduledTimer(withTimeInterval: Self.meteringInterval, repeats: true) { [weak self] _ in
+            let t = Timer(timeInterval: Self.meteringInterval, repeats: true) { [weak self] _ in
                 self?.tick()
             }
+            RunLoop.main.add(t, forMode: .common)
+            timer = t
         } catch {
             NSLog("AudioRecorder: failed to start — \(error)")
         }
