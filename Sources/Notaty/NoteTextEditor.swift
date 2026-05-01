@@ -48,6 +48,22 @@ struct NoteTextEditor: NSViewRepresentable {
         return scrollView
     }
 
+    static func dismantleNSView(_ scrollView: NSScrollView, coordinator: Coordinator) {
+        // SwiftUI tears this representable down when the parent NoteView's
+        // identity changes (tab switch / note delete). Without this, the
+        // window's NSUndoManager can hold actions whose target is the dying
+        // NSTextView — pressing ⌘Z afterwards crashes via objc_msgSend on a
+        // freed pointer. Clear undo state and drop first responder if it
+        // points at this view.
+        guard let textView = scrollView.documentView as? NSTextView else { return }
+        textView.undoManager?.removeAllActions()
+        textView.breakUndoCoalescing()
+        if textView.window?.firstResponder === textView {
+            textView.window?.makeFirstResponder(nil)
+        }
+        coordinator.textView = nil
+    }
+
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         // Rebind the coordinator to the current struct's state every update.
         context.coordinator.text = $text

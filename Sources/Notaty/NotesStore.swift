@@ -54,35 +54,12 @@ final class NotesStore: ObservableObject {
         return note
     }
 
-    @discardableResult
-    func addVoiceNote() -> Note {
-        let f = DateFormatter()
-        f.dateFormat = "MMM d, HH:mm"
-        let timestamp = f.string(from: Date())
-        let id = UUID()
-        let note = Note(
-            id: id,
-            title: "Voice Note \(timestamp)",
-            text: "",
-            type: .voice,
-            audioFilename: "\(id.uuidString).m4a"
-        )
-        notes.append(note)
-        indexByID[note.id] = notes.count - 1
-        selectedID = note.id
-        return note
-    }
-
     func delete(id: UUID) {
         guard let index = indexByID[id] else { return }
         let note = notes[index]
-        // Cascade: move the audio sidecar (voice notes) and all attachment
-        // sidecars (text notes can have any number) to the Trash so the user
-        // can restore them from Finder if needed.
-        if note.type == .voice, let filename = note.audioFilename {
-            let audioURL = Self.audioDir.appendingPathComponent(filename)
-            try? FileManager.default.trashItem(at: audioURL, resultingItemURL: nil)
-        }
+        // Cascade: move all attachment sidecar files to the Trash. Audio
+        // files are now in attachments[] (post voice migration), so we no
+        // longer need to special-case voice.
         for attachment in note.attachments {
             let url = Self.attachmentURL(for: attachment)
             try? FileManager.default.trashItem(at: url, resultingItemURL: nil)
@@ -92,11 +69,6 @@ final class NotesStore: ObservableObject {
         if selectedID == id {
             selectedID = notes.first?.id
         }
-    }
-
-    static func audioURL(for note: Note) -> URL? {
-        guard let filename = note.audioFilename else { return nil }
-        return audioDir.appendingPathComponent(filename)
     }
 
     static func attachmentURL(for attachment: Attachment) -> URL {
@@ -277,7 +249,15 @@ final class NotesStore: ObservableObject {
     }
 
     private func rebuildIndex() {
-        indexByID = Dictionary(uniqueKeysWithValues: notes.enumerated().map { ($1.id, $0) })
+        // Use uniquingKeysWith so a duplicate ID never traps. If duplicates do
+        // appear (corrupt import, manifest bug), keep the latest index — the
+        // caller is responsible for surfacing/repairing the data.
+        let pairs = notes.enumerated().map { ($1.id, $0) }
+        indexByID = Dictionary(pairs, uniquingKeysWith: { _, latest in latest })
+        if indexByID.count != notes.count {
+            NSLog("[Notaty] rebuildIndex: %d duplicate note IDs detected (notes=%d, unique=%d)",
+                  notes.count - indexByID.count, notes.count, indexByID.count)
+        }
     }
 
     private func save(_ value: [Note]) {
@@ -304,13 +284,6 @@ final class NotesStore: ObservableObject {
     private func ensureAppSupportDir() {
         try? FileManager.default.createDirectory(
             at: Self.appSupportDir,
-            withIntermediateDirectories: true
-        )
-    }
-
-    func ensureAudioDir() {
-        try? FileManager.default.createDirectory(
-            at: Self.audioDir,
             withIntermediateDirectories: true
         )
     }

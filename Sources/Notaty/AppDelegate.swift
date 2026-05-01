@@ -59,6 +59,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             PendingAttachments.shared.clear()
         }
 
+        // Migrate legacy voice notes (audioFilename → attachments[]) before
+        // the orphan sweep runs, so migrated files are referenced when we
+        // check for orphans.
+        VoiceMigration.runIfNeeded()
+
         // Run once on launch: drop any attachment file no longer referenced
         // by a note's metadata.
         NotesStore.shared.cleanupOrphanedAttachmentFiles()
@@ -221,6 +226,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         voiceItem.target = self
         menu.addItem(voiceItem)
         menu.addItem(NSMenuItem.separator())
+        let updateItem = NSMenuItem(
+            title: "Check for Updates…",
+            action: #selector(checkForUpdatesFromMenu),
+            keyEquivalent: ""
+        )
+        updateItem.target = self
+        menu.addItem(updateItem)
         menu.addItem(
             withTitle: "Quit Notaty",
             action: #selector(NSApplication.terminate(_:)),
@@ -229,6 +241,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let button = statusItem.button, let event = NSApp.currentEvent {
             NSMenu.popUpContextMenu(menu, with: event, for: button)
         }
+    }
+
+    @objc private func checkForUpdatesFromMenu() {
+        // Bring the app forward so the Sparkle dialog isn't hidden behind
+        // other windows; matches the Settings → Check for Updates flow.
+        NSApp.activate(ignoringOtherApps: true)
+        updaterController.updater.checkForUpdates()
     }
 
     private func toggleWindow() {
@@ -392,19 +411,69 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self else { return }
             if let rect, let image = ScreenCapture.capture(rect: rect) {
                 Self.playShutterSound()
-                OCRService.recognize(image: image) { result in
-                    switch result {
-                    case .success(let text):
-                        self.createNoteFromOCR(text: text)
-                    case .failure(let error):
-                        self.showOCRError(error)
+                // QR detection runs first; it never blocks downstream OCR
+                // (returns [] on any failure). OCR runs regardless. We then
+                // interleave the two streams by visual position.
+                QRDecoder.detect(image: image) { [weak self] qrs in
+                    guard let self else { return }
+                    OCRService.recognize(image: image) { [weak self] result in
+                        guard let self else { return }
+                        switch result {
+                        case .success(let lines):
+                            let combined = self.composeQRsAndOCR(qrs: qrs, ocrLines: lines)
+                            if !combined.isEmpty {
+                                self.createNoteFromOCR(text: combined)
+                            } else {
+                                self.showOCRError(.noText)
+                            }
+                        case .failure(let error):
+                            if qrs.isEmpty {
+                                self.showOCRError(error)
+                            } else {
+                                let combined = self.composeQRsAndOCR(qrs: qrs, ocrLines: [])
+                                self.createNoteFromOCR(text: combined)
+                            }
+                        }
+                        self.restoreWindow(wasVisible: wasVisible)
                     }
-                    self.restoreWindow(wasVisible: wasVisible)
                 }
             } else {
                 self.restoreWindow(wasVisible: wasVisible)
             }
         }
+    }
+
+    /// Merges QR payloads and OCR lines into a single string sorted top-to-
+    /// bottom by Vision's normalized boundingBox.midY (descending), tie-broken
+    /// by midX (ascending). Adjacent text lines are joined by `\n`; any
+    /// boundary touching a QR uses `\n\n` so each QR payload sits in its own
+    /// paragraph regardless of where it falls between OCR lines. Mirrors the
+    /// Nassakh `deliverCombined` ordering rule.
+    private func composeQRsAndOCR(qrs: [DetectedQR], ocrLines: [OCRLine]) -> String {
+        struct Item {
+            let isQR: Bool
+            let midY: CGFloat
+            let midX: CGFloat
+            let text: String
+        }
+
+        let items: [Item] =
+            qrs.map { Item(isQR: true, midY: $0.boundingBox.midY, midX: $0.boundingBox.midX, text: $0.payload) }
+            + ocrLines.map { Item(isQR: false, midY: $0.boundingBox.midY, midX: $0.boundingBox.midX, text: $0.text) }
+
+        let sorted = items.sorted { a, b in
+            if a.midY != b.midY { return a.midY > b.midY }
+            return a.midX < b.midX
+        }
+
+        guard !sorted.isEmpty else { return "" }
+
+        var combined = sorted[0].text
+        for i in 1..<sorted.count {
+            let separator = (sorted[i].isQR || sorted[i - 1].isQR) ? "\n\n" : "\n"
+            combined += separator + sorted[i].text
+        }
+        return combined
     }
 
     private func createNoteFromOCR(text: String) {
@@ -472,12 +541,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func newVoiceNote() {
-        NotesStore.shared.addVoiceNote()
+        guard Settings.shared.voiceNotesEnabled else { return }
+        guard !RecordingSession.shared.isActive else { return }
+
+        // Create a regular note. No type=.voice. Title is timestamp-based.
+        let newNote = NotesStore.shared.addNote()
+        let f = DateFormatter()
+        f.dateFormat = "MMM d, HH:mm"
+        let timestamp = f.string(from: Date())
+        NotesStore.shared.update(id: newNote.id) {
+            $0.title = "Recording \(timestamp)"
+        }
+        NotesStore.shared.selectedID = newNote.id
+
+        // Show the window if it's hidden (preserved from old method).
         guard let window = windowController.window else { return }
         if !window.isVisible {
             NSApp.activate(ignoringOtherApps: true)
             positionUnderStatusItem(window)
             window.makeKeyAndOrderFront(nil)
+        }
+
+        // Start recording in the new note. async to ensure the window/UI has
+        // settled before the recording UI takes over.
+        DispatchQueue.main.async {
+            RecordingSession.shared.start(in: newNote.id)
         }
     }
 

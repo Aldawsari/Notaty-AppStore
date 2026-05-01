@@ -80,12 +80,12 @@ final class Settings: ObservableObject {
         didSet { UserDefaults.standard.set(voiceNotesEnabled, forKey: Self.voiceNotesKey) }
     }
 
-    @Published var autoTranscribe: Bool {
-        didSet { UserDefaults.standard.set(autoTranscribe, forKey: Self.autoTranscribeKey) }
-    }
-
     @Published var transcribeLanguage: String {
         didSet { UserDefaults.standard.set(transcribeLanguage, forKey: Self.langKey) }
+    }
+
+    @Published var autoTranscribe: Bool {
+        didSet { UserDefaults.standard.set(autoTranscribe, forKey: Self.autoTranscribeKey) }
     }
 
     static let supportedLanguages: [(id: String, label: String)] = [
@@ -110,8 +110,8 @@ final class Settings: ObservableObject {
     private static let themeKey = "appTheme"
     private static let launchKey = "launchAtLogin"
     private static let voiceNotesKey = "voiceNotesEnabled"
-    private static let autoTranscribeKey = "autoTranscribe"
     private static let langKey = "transcribeLanguage"
+    private static let autoTranscribeKey = "autoTranscribe"
     private static let pinnedKey = "windowPinned"
 
     private init() {
@@ -125,10 +125,8 @@ final class Settings: ObservableObject {
             ? UserDefaults.standard.bool(forKey: Self.voiceNotesKey)
             : false
 
-        self.autoTranscribe = UserDefaults.standard.object(forKey: Self.autoTranscribeKey) != nil
-            ? UserDefaults.standard.bool(forKey: Self.autoTranscribeKey)
-            : false
         self.transcribeLanguage = UserDefaults.standard.string(forKey: Self.langKey) ?? "ar-SA"
+        self.autoTranscribe = UserDefaults.standard.bool(forKey: Self.autoTranscribeKey)
         self.pinned = UserDefaults.standard.bool(forKey: Self.pinnedKey)
 
         // Default to ON if never set
