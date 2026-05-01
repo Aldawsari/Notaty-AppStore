@@ -35,7 +35,7 @@ struct NoteView: View {
                 .help("Attach file (⌥⌘A)")
 
                 if settings.voiceNotesEnabled {
-                    Button(action: { (NSApp.delegate as? AppDelegate)?.newVoiceNote() }) {
+                    Button(action: { RecordingSession.shared.start(in: noteID) }) {
                         Image(systemName: "mic")
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundColor(.secondary)
