@@ -24,6 +24,10 @@ struct NoteView: View {
                 TextField("Untitled", text: store.titleBinding(for: noteID))
                     .textFieldStyle(.plain)
                     .font(.system(size: 14, weight: .semibold))
+                    // Apply RTL alignment to the title text only — keep the
+                    // row's icon order fixed (paperclip + mic on the right)
+                    // regardless of the note's detected language.
+                    .environment(\.layoutDirection, layoutDirection)
 
                 Button(action: { AttachmentImporter.openPicker(targetNoteID: noteID) }) {
                     Image(systemName: "paperclip")
@@ -49,7 +53,6 @@ struct NoteView: View {
             .padding(.horizontal, 12)
             .padding(.top, 10)
             .padding(.bottom, 6)
-            .environment(\.layoutDirection, layoutDirection)
 
             Divider()
 
