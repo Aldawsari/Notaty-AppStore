@@ -226,6 +226,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         voiceItem.target = self
         menu.addItem(voiceItem)
         menu.addItem(NSMenuItem.separator())
+        let updateItem = NSMenuItem(
+            title: "Check for Updates…",
+            action: #selector(checkForUpdatesFromMenu),
+            keyEquivalent: ""
+        )
+        updateItem.target = self
+        menu.addItem(updateItem)
         menu.addItem(
             withTitle: "Quit Notaty",
             action: #selector(NSApplication.terminate(_:)),
@@ -234,6 +241,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let button = statusItem.button, let event = NSApp.currentEvent {
             NSMenu.popUpContextMenu(menu, with: event, for: button)
         }
+    }
+
+    @objc private func checkForUpdatesFromMenu() {
+        // Bring the app forward so the Sparkle dialog isn't hidden behind
+        // other windows; matches the Settings → Check for Updates flow.
+        NSApp.activate(ignoringOtherApps: true)
+        updaterController.updater.checkForUpdates()
     }
 
     private func toggleWindow() {
