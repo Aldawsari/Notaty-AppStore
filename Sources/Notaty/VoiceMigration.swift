@@ -14,6 +14,16 @@ enum VoiceMigration {
     private static let v1Key = "didMigrateVoiceToAttachments"
     private static let v2Key = "didMigrateVoiceNoteFlag"
 
+    /// Historical originalName values that mark an in-app voice recording.
+    /// Used by v2 to recognize attachments created before `isVoiceNote`
+    /// existed. Intentionally NOT shared with v1's attachment-creation
+    /// default — these are immutable recognition patterns; adding a future
+    /// naming convention belongs in a v3 sweep, not here.
+    private static let v2RecognizedOriginalNames: Set<String> = [
+        "Recording.m4a",
+        "Voice Note.m4a",
+    ]
+
     static func runIfNeeded() {
         runV1IfNeeded()
         runV2IfNeeded()
@@ -87,7 +97,7 @@ enum VoiceMigration {
             for idx in newAttachments.indices {
                 let att = newAttachments[idx]
                 if !att.isVoiceNote
-                    && (att.originalName == "Recording.m4a" || att.originalName == "Voice Note.m4a") {
+                    && Self.v2RecognizedOriginalNames.contains(att.originalName) {
                     newAttachments[idx].isVoiceNote = true
                     changed = true
                     flippedCount += 1
