@@ -54,35 +54,12 @@ final class NotesStore: ObservableObject {
         return note
     }
 
-    @discardableResult
-    func addVoiceNote() -> Note {
-        let f = DateFormatter()
-        f.dateFormat = "MMM d, HH:mm"
-        let timestamp = f.string(from: Date())
-        let id = UUID()
-        let note = Note(
-            id: id,
-            title: "Voice Note \(timestamp)",
-            text: "",
-            type: .voice,
-            audioFilename: "\(id.uuidString).m4a"
-        )
-        notes.append(note)
-        indexByID[note.id] = notes.count - 1
-        selectedID = note.id
-        return note
-    }
-
     func delete(id: UUID) {
         guard let index = indexByID[id] else { return }
         let note = notes[index]
-        // Cascade: move the audio sidecar (voice notes) and all attachment
-        // sidecars (text notes can have any number) to the Trash so the user
-        // can restore them from Finder if needed.
-        if note.type == .voice, let filename = note.audioFilename {
-            let audioURL = Self.audioDir.appendingPathComponent(filename)
-            try? FileManager.default.trashItem(at: audioURL, resultingItemURL: nil)
-        }
+        // Cascade: move all attachment sidecar files to the Trash. Audio
+        // files are now in attachments[] (post voice migration), so we no
+        // longer need to special-case voice.
         for attachment in note.attachments {
             let url = Self.attachmentURL(for: attachment)
             try? FileManager.default.trashItem(at: url, resultingItemURL: nil)
