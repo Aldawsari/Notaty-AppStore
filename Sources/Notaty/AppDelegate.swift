@@ -472,12 +472,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func newVoiceNote() {
-        NotesStore.shared.addVoiceNote()
+        guard Settings.shared.voiceNotesEnabled else { return }
+        guard !RecordingSession.shared.isActive else { return }
+
+        // Create a regular note. No type=.voice. Title is timestamp-based.
+        let newNote = NotesStore.shared.addNote()
+        let f = DateFormatter()
+        f.dateFormat = "MMM d, HH:mm"
+        let timestamp = f.string(from: Date())
+        NotesStore.shared.update(id: newNote.id) {
+            $0.title = "Recording \(timestamp)"
+        }
+        NotesStore.shared.selectedID = newNote.id
+
+        // Show the window if it's hidden (preserved from old method).
         guard let window = windowController.window else { return }
         if !window.isVisible {
             NSApp.activate(ignoringOtherApps: true)
             positionUnderStatusItem(window)
             window.makeKeyAndOrderFront(nil)
+        }
+
+        // Start recording in the new note. async to ensure the window/UI has
+        // settled before the recording UI takes over.
+        DispatchQueue.main.async {
+            RecordingSession.shared.start(in: newNote.id)
         }
     }
 
