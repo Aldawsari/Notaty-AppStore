@@ -7,22 +7,32 @@ enum OCRError: Error {
     case vision(Error)
 }
 
+/// One recognized text line with its position in normalized image space
+/// (Vision's coordinates: origin lower-left, both axes 0…1).
+struct OCRLine {
+    let text: String
+    let boundingBox: CGRect
+}
+
 enum OCRService {
-    static func recognize(image: CGImage, completion: @escaping (Result<String, OCRError>) -> Void) {
+    static func recognize(image: CGImage, completion: @escaping (Result<[OCRLine], OCRError>) -> Void) {
         let request = VNRecognizeTextRequest { request, error in
             if let error {
                 DispatchQueue.main.async { completion(.failure(.vision(error))) }
                 return
             }
             let observations = (request.results as? [VNRecognizedTextObservation]) ?? []
-            let text = observations
-                .compactMap { $0.topCandidates(1).first?.string }
-                .joined(separator: "\n")
+            let lines: [OCRLine] = observations.compactMap { obs in
+                guard let candidate = obs.topCandidates(1).first?.string, !candidate.isEmpty else {
+                    return nil
+                }
+                return OCRLine(text: candidate, boundingBox: obs.boundingBox)
+            }
             DispatchQueue.main.async {
-                if text.isEmpty {
+                if lines.isEmpty {
                     completion(.failure(.noText))
                 } else {
-                    completion(.success(text))
+                    completion(.success(lines))
                 }
             }
         }
