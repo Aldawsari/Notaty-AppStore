@@ -53,21 +53,28 @@ struct RecordingBanner: View {
     @State private var pulseOn = false
 
     private var waveform: some View {
+        // Mirror WaveformView's geometry (RoundedRectangle cornerRadius 1,
+        // 1.5pt spacing) so live recording and playback share the same
+        // visual language. Live mode keeps the red fill; the divisor stays
+        // fixed at AudioRecorder.levelWindowSize so early bars don't span
+        // the whole width while more samples are still being captured.
         GeometryReader { geo in
             let levels = recorder.recentLevels
-            let count = max(1, levels.count)
             let spacing: CGFloat = 1.5
-            let availableWidth = geo.size.width
-            let barWidth = max(1.5, (availableWidth - spacing * CGFloat(count - 1)) / CGFloat(40))
+            let slotCount: CGFloat = 40
+            let barWidth = max(1, (geo.size.width - spacing * (slotCount - 1)) / slotCount)
+            let maxHeight = geo.size.height
             HStack(alignment: .center, spacing: spacing) {
                 ForEach(0..<levels.count, id: \.self) { i in
                     let amplitude = max(0.05, CGFloat(levels[i]))
-                    Capsule()
+                    let height = max(2, amplitude * maxHeight)
+                    RoundedRectangle(cornerRadius: 1)
                         .fill(Color(red: 0.86, green: 0.15, blue: 0.15))
-                        .frame(width: barWidth, height: max(2, amplitude * geo.size.height))
+                        .frame(width: barWidth, height: height)
                 }
                 Spacer(minLength: 0)
             }
+            .frame(maxHeight: .infinity, alignment: .center)
         }
         .frame(height: 22)
     }
