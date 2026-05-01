@@ -71,11 +71,6 @@ final class NotesStore: ObservableObject {
         }
     }
 
-    static func audioURL(for note: Note) -> URL? {
-        guard let filename = note.audioFilename else { return nil }
-        return audioDir.appendingPathComponent(filename)
-    }
-
     static func attachmentURL(for attachment: Attachment) -> URL {
         attachmentsDir.appendingPathComponent(attachment.storedName)
     }
@@ -281,13 +276,6 @@ final class NotesStore: ObservableObject {
     private func ensureAppSupportDir() {
         try? FileManager.default.createDirectory(
             at: Self.appSupportDir,
-            withIntermediateDirectories: true
-        )
-    }
-
-    func ensureAudioDir() {
-        try? FileManager.default.createDirectory(
-            at: Self.audioDir,
             withIntermediateDirectories: true
         )
     }
