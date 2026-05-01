@@ -411,19 +411,69 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self else { return }
             if let rect, let image = ScreenCapture.capture(rect: rect) {
                 Self.playShutterSound()
-                OCRService.recognize(image: image) { result in
-                    switch result {
-                    case .success(let text):
-                        self.createNoteFromOCR(text: text)
-                    case .failure(let error):
-                        self.showOCRError(error)
+                // QR detection runs first; it never blocks downstream OCR
+                // (returns [] on any failure). OCR runs regardless. We then
+                // interleave the two streams by visual position.
+                QRDecoder.detect(image: image) { [weak self] qrs in
+                    guard let self else { return }
+                    OCRService.recognize(image: image) { [weak self] result in
+                        guard let self else { return }
+                        switch result {
+                        case .success(let lines):
+                            let combined = self.composeQRsAndOCR(qrs: qrs, ocrLines: lines)
+                            if !combined.isEmpty {
+                                self.createNoteFromOCR(text: combined)
+                            } else {
+                                self.showOCRError(.noText)
+                            }
+                        case .failure(let error):
+                            if qrs.isEmpty {
+                                self.showOCRError(error)
+                            } else {
+                                let combined = self.composeQRsAndOCR(qrs: qrs, ocrLines: [])
+                                self.createNoteFromOCR(text: combined)
+                            }
+                        }
+                        self.restoreWindow(wasVisible: wasVisible)
                     }
-                    self.restoreWindow(wasVisible: wasVisible)
                 }
             } else {
                 self.restoreWindow(wasVisible: wasVisible)
             }
         }
+    }
+
+    /// Merges QR payloads and OCR lines into a single string sorted top-to-
+    /// bottom by Vision's normalized boundingBox.midY (descending), tie-broken
+    /// by midX (ascending). Adjacent text lines are joined by `\n`; any
+    /// boundary touching a QR uses `\n\n` so each QR payload sits in its own
+    /// paragraph regardless of where it falls between OCR lines. Mirrors the
+    /// Nassakh `deliverCombined` ordering rule.
+    private func composeQRsAndOCR(qrs: [DetectedQR], ocrLines: [OCRLine]) -> String {
+        struct Item {
+            let isQR: Bool
+            let midY: CGFloat
+            let midX: CGFloat
+            let text: String
+        }
+
+        let items: [Item] =
+            qrs.map { Item(isQR: true, midY: $0.boundingBox.midY, midX: $0.boundingBox.midX, text: $0.payload) }
+            + ocrLines.map { Item(isQR: false, midY: $0.boundingBox.midY, midX: $0.boundingBox.midX, text: $0.text) }
+
+        let sorted = items.sorted { a, b in
+            if a.midY != b.midY { return a.midY > b.midY }
+            return a.midX < b.midX
+        }
+
+        guard !sorted.isEmpty else { return "" }
+
+        var combined = sorted[0].text
+        for i in 1..<sorted.count {
+            let separator = (sorted[i].isQR || sorted[i - 1].isQR) ? "\n\n" : "\n"
+            combined += separator + sorted[i].text
+        }
+        return combined
     }
 
     private func createNoteFromOCR(text: String) {
