@@ -1,11 +1,15 @@
 # Changelog
 
-## Unreleased
+## v1.3
 
-- File attachments on text notes. Attach files by: clicking the new paperclip in the tab bar, pressing ⌥⌘A, dragging from Finder onto a note, pasting a copied file with ⌘V, or **dropping files onto the Notaty menu bar icon**. Menu bar drop opens the window with a banner showing every file you've dropped — keep dropping to add more, then click any tab or ＋ to attach the whole shelf to that note (or × individual files to remove them from the shelf). Each attachment renders as a chip below the note title with a thumbnail, name, and size. Click a chip to select it (shift+click for range, cmd+click to toggle), press Space to preview with Quick Look, double-click to open in the default app, Delete to remove (with confirmation). Drag chips between tabs to move attachments between notes (multi-select moves the whole group). Drag a chip back to Finder to copy it out. Deleted attachments go to the Trash. Everything survives launches and is included in zip export/import.
-- Pin window: keep Notaty's window on top until you close it. Toggle "Keep window on top" in Settings → Window. When pinned, the window no longer hides on outside clicks; Esc and the close button still dismiss as usual. Optional quick-toggle pin icon in the tab bar — enable "Show pin button in tab bar" in Settings if you want one-click access from the window itself.
-- Voice notes are unified with regular notes. Recording happens via an inline banner — click 🎤 in any note's title row, or press ⇧⌘N to create a new note that auto-starts recording. Audio recordings appear as M4A attachment chips alongside any other files in the note. Right-click an audio chip to "Transcribe & Insert" the transcript into the note body, "Show in Finder", play, or remove. Existing voice notes from prior versions migrate automatically on first launch — title and body are preserved, audio becomes an attachment. The previous "auto-transcribe on stop" behavior is gone in favor of the explicit right-click action.
-- Voice notes have their own dedicated strip above the file-attachment strip. Each in-app recording renders as a player card with inline waveform, drag-to-seek, play/pause, transcribe toggle, copy-to-note (✏️), and delete (×). The transcript bubble is collapsible — first tap on the transcribe icon runs transcription and opens the bubble; subsequent taps show/hide. Transcripts are session-scoped (cleared on app quit). Auto-transcribe is available as a Settings toggle (Voice Notes section, default off): when enabled, transcription starts automatically as soon as a recording stops. Existing voice notes from the unreleased build migrate automatically on first launch.
+- File attachments on text notes — drag, paste with ⌘V, paperclip / ⌥⌘A, or drop on the menu bar icon. Files appear as chips under the title; Space for Quick Look, drag between tabs to move, drag back to Finder to copy out. Included in zip export/import.
+- Voice notes redesigned. Each in-app recording is a player card with inline waveform, drag-to-seek, play/pause, transcribe toggle, copy-to-note (✏️), and delete (×). Voice notes have their own strip above the file-attachment strip. Old voice notes migrate automatically.
+- Auto-transcribe — new Settings toggle (Voice Notes, default off). When on, transcription starts as soon as a recording stops.
+- Each voice note is named "Voice Note 1", "Voice Note 2", etc. The transcript bubble and the inserted text block both reference the name.
+- OCR reads QR codes. Capture a region with a QR code and the payload is decoded alongside any recognized text, interleaved by visual position.
+- Pin window — keep Notaty open while you work via Settings → Window → "Keep window on top". Optional pin button in the tab bar.
+- "Check for Updates…" added to the right-click menu on the menu bar icon.
+- Bug fixes and stability improvements.
 
 ## v1.2.1
 
