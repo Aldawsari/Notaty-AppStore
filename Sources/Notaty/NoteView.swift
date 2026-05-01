@@ -4,6 +4,8 @@ import AppKit
 struct NoteView: View {
     let noteID: UUID
     @ObservedObject private var store = NotesStore.shared
+    @ObservedObject private var recordingSession = RecordingSession.shared
+    @ObservedObject private var settings = Settings.shared
 
     private var note: Note? {
         store.notes.first(where: { $0.id == noteID })
@@ -32,7 +34,7 @@ struct NoteView: View {
                 .buttonStyle(.plain)
                 .help("Attach file (⌥⌘A)")
 
-                if Settings.shared.voiceNotesEnabled {
+                if settings.voiceNotesEnabled {
                     Button(action: { (NSApp.delegate as? AppDelegate)?.newVoiceNote() }) {
                         Image(systemName: "mic")
                             .font(.system(size: 12, weight: .semibold))
@@ -41,7 +43,7 @@ struct NoteView: View {
                     }
                     .buttonStyle(.plain)
                     .help("New voice note (⇧⌘N)")
-                    .disabled(RecordingSession.shared.isActive)
+                    .disabled(recordingSession.isActive)
                 }
             }
             .padding(.horizontal, 12)
