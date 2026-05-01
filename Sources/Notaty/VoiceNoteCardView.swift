@@ -6,6 +6,10 @@ import AppKit
 struct VoiceNoteCardView: View {
     let attachment: Attachment
     let noteID: UUID
+    /// 0-based position among the parent note's voice-note attachments.
+    /// Renders as "Voice Note \(index + 1)" in the top-left label, the
+    /// transcription bubble header, and the copy-to-note block.
+    let index: Int
 
     @ObservedObject private var store = NotesStore.shared
     @ObservedObject private var cache = TranscriptCache.shared
@@ -14,6 +18,7 @@ struct VoiceNoteCardView: View {
     @State private var didLoadAudio = false
 
     private var audioURL: URL { NotesStore.attachmentURL(for: attachment) }
+    private var displayName: String { "Voice Note \(index + 1)" }
 
     private var transcriptState: TranscriptCache.State {
         cache.state(for: attachment.storedName)
@@ -33,6 +38,7 @@ struct VoiceNoteCardView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            header
             playerBar
             if bubbleVisible {
                 Divider().opacity(0.4)
@@ -55,6 +61,20 @@ struct VoiceNoteCardView: View {
             }
         }
         .onDisappear { player.pause() }
+    }
+
+    // MARK: - Header
+
+    private var header: some View {
+        HStack(spacing: 0) {
+            Text(displayName)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.secondary)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
+        .padding(.bottom, 2)
     }
 
     // MARK: - Player bar
@@ -123,7 +143,7 @@ struct VoiceNoteCardView: View {
                 Image(systemName: "mic.fill")
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
-                Text("Voice Transcription")
+                Text("\(displayName) — Transcription")
                     .font(.system(size: 10, weight: .medium))
                     .foregroundColor(.secondary)
                 Spacer()
@@ -231,7 +251,7 @@ struct VoiceNoteCardView: View {
     private func copyTranscriptionToNote() {
         guard case .ready(let text) = transcriptState else { return }
         let separator = "━━━━━━━━━━━━━━━━━━━━"
-        let block = "\(separator)\n🎙✍️ Transcription\n\(separator)\n\(text)\n\(separator)\n\n"
+        let block = "\(separator)\n🎙✍️ \(displayName) — Transcription\n\(separator)\n\(text)\n\(separator)\n\n"
         store.update(id: noteID) { $0.text = block + $0.text }
     }
 

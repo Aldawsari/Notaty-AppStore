@@ -18,8 +18,12 @@ struct VoiceNoteStripView: View {
             EmptyView()
         } else {
             VStack(spacing: 8) {
-                ForEach(voiceNotes) { attachment in
-                    VoiceNoteCardView(attachment: attachment, noteID: noteID)
+                ForEach(Array(voiceNotes.enumerated()), id: \.element.id) { pair in
+                    VoiceNoteCardView(
+                        attachment: pair.element,
+                        noteID: noteID,
+                        index: pair.offset
+                    )
                 }
             }
             .padding(.vertical, 10)
