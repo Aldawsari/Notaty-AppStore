@@ -25,7 +25,9 @@ struct AttachmentStripView: View {
     private let preview = AttachmentPreviewCoordinator.shared
 
     private var attachments: [Attachment] {
-        store.note(for: noteID)?.attachments ?? []
+        // Voice-note attachments render in VoiceNoteStripView. Everything
+        // else (files, user-imported audio) renders here.
+        (store.note(for: noteID)?.attachments ?? []).filter { !$0.isVoiceNote }
     }
 
     var body: some View {
