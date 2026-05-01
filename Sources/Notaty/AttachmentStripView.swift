@@ -59,6 +59,12 @@ struct AttachmentStripView: View {
                     },
                     onRemove: {
                         confirmAndRemove([attachment.id])
+                    },
+                    onTranscribe: {
+                        transcribeAndInsert(attachment)
+                    },
+                    onShowInFinder: {
+                        NSWorkspace.shared.activateFileViewerSelecting([NotesStore.attachmentURL(for: attachment)])
                     }
                 )
                 .onDrag {
@@ -138,6 +144,32 @@ struct AttachmentStripView: View {
     private func handleDelete() {
         guard !selectedIDs.isEmpty else { return }
         confirmAndRemove(selectedIDs)
+    }
+
+    @MainActor
+    private func transcribeAndInsert(_ attachment: Attachment) {
+        let url = NotesStore.attachmentURL(for: attachment)
+        Task {
+            do {
+                let transcript = try await SpeechTranscriber.transcribe(audioURL: url)
+                await MainActor.run {
+                    let separator = "\n\n---\n"
+                    var current = store.note(for: noteID)?.text ?? ""
+                    if !current.isEmpty { current += separator }
+                    current += transcript
+                    store.update(id: noteID) { $0.text = current }
+                }
+            } catch {
+                await MainActor.run {
+                    let alert = NSAlert()
+                    alert.messageText = "Couldn't transcribe"
+                    alert.informativeText = "\(error)"
+                    alert.alertStyle = .warning
+                    alert.addButton(withTitle: "OK")
+                    alert.runModal()
+                }
+            }
+        }
     }
 
     /// Shared confirm-then-remove path. Used by the chip's × button (single

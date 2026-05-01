@@ -25,6 +25,12 @@ struct Attachment: Identifiable, Codable, Equatable {
         ["jpg", "jpeg", "png", "gif", "heic", "webp", "tiff", "bmp"].contains(fileExtension)
     }
 
+    /// True if `fileExtension` is one of the audio types the app can
+    /// transcribe and play inline.
+    var isAudio: Bool {
+        ["m4a", "mp3", "wav", "aiff"].contains(fileExtension)
+    }
+
     /// Up-to-4-character uppercase label for non-image type icons (e.g. "PDF",
     /// "DOC", "DOCX", "HEIC"). Falls back to "FILE" when no extension exists.
     var typeLabel: String {
