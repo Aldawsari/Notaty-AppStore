@@ -61,7 +61,8 @@ final class RecordingSession: ObservableObject {
         let attachment = Attachment(
             originalName: originalName,
             storedName: storedName,
-            byteSize: size
+            byteSize: size,
+            isVoiceNote: true
         )
         NotesStore.shared.update(id: noteID) { $0.attachments.append(attachment) }
         return storedName
