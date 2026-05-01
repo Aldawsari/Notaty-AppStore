@@ -59,6 +59,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             PendingAttachments.shared.clear()
         }
 
+        // Migrate legacy voice notes (audioFilename → attachments[]) before
+        // the orphan sweep runs, so migrated files are referenced when we
+        // check for orphans.
+        VoiceMigration.runIfNeeded()
+
         // Run once on launch: drop any attachment file no longer referenced
         // by a note's metadata.
         NotesStore.shared.cleanupOrphanedAttachmentFiles()
