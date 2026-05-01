@@ -65,6 +65,14 @@ final class RecordingSession: ObservableObject {
             isVoiceNote: true
         )
         NotesStore.shared.update(id: noteID) { $0.attachments.append(attachment) }
+        if Settings.shared.autoTranscribe {
+            Task { @MainActor in
+                await TranscriptCache.shared.transcribe(
+                    storedName: storedName,
+                    audioURL: url
+                )
+            }
+        }
         return storedName
     }
 }
