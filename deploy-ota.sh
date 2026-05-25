@@ -76,6 +76,8 @@ cat > \$APP/Contents/Info.plist << PLIST
     <key>LSUIElement</key><true/>
     <key>NSHighResolutionCapable</key><true/>
     <key>LSMinimumSystemVersion</key><string>13.0</string>
+    <key>NSMicrophoneUsageDescription</key><string>Notaty needs microphone access to record voice notes.</string>
+    <key>NSSpeechRecognitionUsageDescription</key><string>Notaty uses speech recognition to transcribe voice notes to text.</string>
     <key>NSScreenCaptureUsageDescription</key><string>Notaty needs Screen Recording permission to capture regions of the screen for OCR.</string>
     <key>SUFeedURL</key><string>https://icamel.app/product/notaty/appcast.xml</string>
     <key>SUPublicEDKey</key><string>$PUBKEY</string>

@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.3.1
+
+- Bug fixes for voice note recording and transcription.
+
 ## v1.3
 
 - File attachments on text notes — drag, paste with ⌘V, paperclip / ⌥⌘A, or drop on the menu bar icon. Files appear as chips under the title; Space for Quick Look, drag between tabs to move, drag back to Finder to copy out. Included in zip export/import.

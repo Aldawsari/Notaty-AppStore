@@ -2,6 +2,20 @@ import AVFoundation
 import Combine
 
 final class AudioRecorder: NSObject, ObservableObject, AVAudioRecorderDelegate {
+    enum RecordingError: LocalizedError {
+        case alreadyRecording
+        case couldNotStart
+
+        var errorDescription: String? {
+            switch self {
+            case .alreadyRecording:
+                return "A recording is already in progress."
+            case .couldNotStart:
+                return "Notaty could not start recording from the microphone."
+            }
+        }
+    }
+
     @Published var isRecording = false
     @Published var elapsedTime: TimeInterval = 0
     /// Most recent normalized amplitude samples (0...1), one per metering tick.
@@ -15,8 +29,8 @@ final class AudioRecorder: NSObject, ObservableObject, AVAudioRecorderDelegate {
     private static let levelWindowSize = 40
     private static let meteringInterval: TimeInterval = 0.05
 
-    func startRecording(to url: URL) {
-        guard recorder == nil else { return }
+    func startRecording(to url: URL) throws {
+        guard recorder == nil else { throw RecordingError.alreadyRecording }
         let settings: [String: Any] = [
             AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
             AVSampleRateKey: 44100,
@@ -25,10 +39,16 @@ final class AudioRecorder: NSObject, ObservableObject, AVAudioRecorderDelegate {
         ]
 
         do {
-            recorder = try AVAudioRecorder(url: url, settings: settings)
-            recorder?.delegate = self
-            recorder?.isMeteringEnabled = true
-            recorder?.record()
+            let recorder = try AVAudioRecorder(url: url, settings: settings)
+            recorder.delegate = self
+            recorder.isMeteringEnabled = true
+            recorder.prepareToRecord()
+
+            guard recorder.record() else {
+                throw RecordingError.couldNotStart
+            }
+
+            self.recorder = recorder
             isRecording = true
             startTime = Date()
             elapsedTime = 0
@@ -39,7 +59,13 @@ final class AudioRecorder: NSObject, ObservableObject, AVAudioRecorderDelegate {
             RunLoop.main.add(t, forMode: .common)
             timer = t
         } catch {
+            recorder = nil
+            isRecording = false
+            elapsedTime = 0
+            recentLevels = []
+            try? FileManager.default.removeItem(at: url)
             NSLog("AudioRecorder: failed to start — \(error)")
+            throw error
         }
     }
 

@@ -6,10 +6,30 @@ final class SpeechTranscriber {
         case failed(String)
         case notAvailable
         case notAuthorized
+        case missingUsageDescription
+
+        var localizedDescription: String {
+            switch self {
+            case .failed(let message):
+                return message
+            case .notAvailable:
+                return "Speech recognition is not available for the selected language."
+            case .notAuthorized:
+                return "Speech recognition permission was not granted."
+            case .missingUsageDescription:
+                return "Speech recognition requires Notaty to run as an app bundle with NSSpeechRecognitionUsageDescription in Info.plist."
+            }
+        }
     }
 
     /// Transcribe using the language selected in Settings.
     static func transcribe(audioURL: URL) async throws -> String {
+        guard Bundle.main.bundleURL.pathExtension == "app",
+              Bundle.main.object(forInfoDictionaryKey: "NSSpeechRecognitionUsageDescription") is String
+        else {
+            throw TranscribeError.missingUsageDescription
+        }
+
         let status = SFSpeechRecognizer.authorizationStatus()
         if status != .authorized {
             let granted = await withCheckedContinuation { cont in

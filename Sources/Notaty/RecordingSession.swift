@@ -1,5 +1,7 @@
 import Foundation
 import Combine
+import AppKit
+import AVFoundation
 
 /// Global coordinator for the in-progress voice recording. Only one recording
 /// can be active across the whole app (the mic is a singleton resource).
@@ -35,11 +37,72 @@ final class RecordingSession: ObservableObject {
     @MainActor
     func start(in noteID: UUID) {
         guard !isActive else { return }
+        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        case .authorized:
+            startAuthorizedRecording(in: noteID)
+        case .notDetermined:
+            requestMicrophoneAccess(for: noteID)
+        case .denied, .restricted:
+            showMicrophoneAccessAlert()
+        @unknown default:
+            showMicrophoneAccessAlert()
+        }
+    }
+
+    @MainActor
+    private func requestMicrophoneAccess(for noteID: UUID) {
+        (NSApp.delegate as? AppDelegate)?.suppressDismiss = true
+        AVCaptureDevice.requestAccess(for: .audio) { granted in
+            DispatchQueue.main.async {
+                let appDelegate = NSApp.delegate as? AppDelegate
+                appDelegate?.suppressDismiss = false
+                if granted {
+                    Self.shared.startAuthorizedRecording(in: noteID)
+                } else {
+                    Self.shared.showMicrophoneAccessAlert()
+                }
+            }
+        }
+    }
+
+    @MainActor
+    private func startAuthorizedRecording(in noteID: UUID) {
+        guard !isActive else { return }
         NotesStore.shared.ensureAttachmentsDir()
         let storedName = "\(UUID().uuidString).m4a"
         let url = NotesStore.attachmentsDir.appendingPathComponent(storedName)
-        currentNoteID = noteID
-        recorder.startRecording(to: url)
+
+        do {
+            try recorder.startRecording(to: url)
+            currentNoteID = noteID
+        } catch {
+            currentNoteID = nil
+            showRecordingStartError(error)
+        }
+    }
+
+    @MainActor
+    private func showMicrophoneAccessAlert() {
+        let alert = NSAlert()
+        alert.messageText = "Microphone access required"
+        alert.informativeText = "Notaty needs microphone access to record voice notes. Enable it in System Settings, then try recording again."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Open System Settings")
+        alert.addButton(withTitle: "Cancel")
+        if alert.runModal() == .alertFirstButtonReturn,
+           let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    @MainActor
+    private func showRecordingStartError(_ error: Error) {
+        let alert = NSAlert()
+        alert.messageText = "Recording failed"
+        alert.informativeText = error.localizedDescription
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 
     /// Stop the active recording. Finalizes the file, builds an Attachment
