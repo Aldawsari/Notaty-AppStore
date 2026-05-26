@@ -1,7 +1,6 @@
 import AppKit
 import Combine
 import QuickLookUI
-import Sparkle
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
@@ -15,11 +14,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Voice recording and transcription set this to avoid permission dialogs
     /// dismissing the window.
     var suppressDismiss = false
-    private let updaterController = SPUStandardUpdaterController(
-        startingUpdater: true,
-        updaterDelegate: nil,
-        userDriverDelegate: nil
-    )
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.appearance = Settings.shared.theme.nsAppearance
@@ -226,28 +220,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         voiceItem.target = self
         menu.addItem(voiceItem)
         menu.addItem(NSMenuItem.separator())
-        let updateItem = NSMenuItem(
-            title: "Check for Updates…",
-            action: #selector(checkForUpdatesFromMenu),
-            keyEquivalent: ""
-        )
-        updateItem.target = self
-        menu.addItem(updateItem)
-        menu.addItem(
-            withTitle: "Quit Notaty",
-            action: #selector(NSApplication.terminate(_:)),
-            keyEquivalent: "q"
-        )
+        menu.addItem(withTitle: "Quit Notaty", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         if let button = statusItem.button, let event = NSApp.currentEvent {
             NSMenu.popUpContextMenu(menu, with: event, for: button)
         }
-    }
-
-    @objc private func checkForUpdatesFromMenu() {
-        // Bring the app forward so the Sparkle dialog isn't hidden behind
-        // other windows; matches the Settings → Check for Updates flow.
-        NSApp.activate(ignoringOtherApps: true)
-        updaterController.updater.checkForUpdates()
     }
 
     private func toggleWindow() {
@@ -371,7 +347,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func openSettings() {
-        SettingsWindowController.show(updater: updaterController.updater)
+        SettingsWindowController.show()
     }
 
     @objc func openQuickSwitcher() {

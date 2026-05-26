@@ -1,7 +1,12 @@
-# Notaty
+# NotatyAppstore
 
-A small macOS menu bar app for quick note-taking with multi-note tabs, OCR
-from screen selection, and full RTL / Arabic support.
+The App Store variant of Notaty, a small macOS menu bar app for quick
+note-taking with multi-note tabs, OCR from screen selection, and full RTL /
+Arabic support.
+
+This repository is separate from the direct-distribution Notaty app. Sparkle
+OTA updates and external deployment scripts are intentionally removed for App
+Store preparation.
 
 ## Features
 
@@ -26,32 +31,22 @@ from screen selection, and full RTL / Arabic support.
 
 ```sh
 swift build -c release
-./build.sh 0.8         # assembles dist/Notaty-0.8.app (signs with local dev cert if available)
+./build.sh 1.0         # assembles dist/NotatyAppstore-1.0.app
 ```
 
-`build.sh` refuses to overwrite an existing `dist/Notaty-<version>.app`, so
+`build.sh` refuses to overwrite an existing `dist/NotatyAppstore-<version>.app`, so
 bump the version argument for each deployment.
 
-### One-time signing setup
-
-macOS TCC (Screen Recording permission for OCR) keys off the app's code
-signature. If you rebuild without a stable signing identity, macOS treats
-each build as a brand-new app and forgets the permission.
-
-Run this once on your machine to create a persistent local signing identity:
-
-```sh
-./setup-signing.sh
-```
-
-This creates a self-signed certificate called `Notaty Local Dev` in your
-login keychain. After that, every `./build.sh` automatically signs with it,
-and macOS keeps Screen Recording permission across rebuilds.
+For App Store packaging, archive/export with an Apple Distribution identity
+and an App Store Connect provisioning profile. `NotatyAppstore.entitlements`
+enables App Sandbox, microphone input, user-selected file access, and outbound
+network access for Speech recognition. The local `build.sh` can ad-hoc sign
+for validation if no matching identity is available.
 
 ## Project layout
 
 ```
-Notaty/
+NotatyAppstore/
 ├── Package.swift              # SPM executable target, macOS 13+
 ├── Sources/Notaty/
 │   ├── main.swift             # NSApplication bootstrap (accessory mode)
@@ -70,8 +65,10 @@ Notaty/
 │   ├── NotatyMenuBuilder.swift # Hamburger menu
 │   ├── NotatyActions.swift    # Save As, responder-chain edit helpers
 │   └── VisualEffectView.swift
-├── build.sh                   # Release build → versioned .app bundle
-├── setup-signing.sh           # One-time local signing cert bootstrap
+├── build.sh                   # App Store-oriented local .app bundle
+├── run-debug.sh               # Builds and launches a debug .app bundle
+├── NotatyAppstore.entitlements
+├── APP_STORE_BUILD.md         # Repo safety marker for App Store variant
 ├── make_icon.swift            # Generates AppIcon.icns from SF Symbols
 └── AppIcon.icns               # Generated, committed for convenience
 ```
@@ -80,5 +77,5 @@ Notaty/
 
 Branch off `main`, keep commits small, and run `swift build` before pushing.
 For UI work, rebuild in place at the current version (`rm -rf
-dist/Notaty-<v>.app && ./build.sh <v>`) and test manually — the app is
+dist/NotatyAppstore-<v>.app && ./build.sh <v>`) and test manually — the app is
 ~100% UI glue with no automated tests.

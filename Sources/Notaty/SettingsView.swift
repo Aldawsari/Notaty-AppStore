@@ -1,17 +1,11 @@
 import SwiftUI
 import AppKit
-import Sparkle
 
 struct SettingsView: View {
     @ObservedObject private var settings = Settings.shared
-    let updater: SPUUpdater?
 
     private let appVersion = "v1.3.1"
     private let accent = Color.accentColor
-
-    init(updater: SPUUpdater? = nil) {
-        self.updater = updater
-    }
 
     var body: some View {
         ScrollView {
@@ -149,20 +143,6 @@ struct SettingsView: View {
                     }
                     .padding(.vertical, 4)
 
-                    if let updater {
-                        Button {
-                            NSApp.activate(ignoringOtherApps: true); updater.checkForUpdates()
-                        } label: {
-                            HStack {
-                                Image(systemName: "arrow.triangle.2.circlepath")
-                                Text("Check for Updates")
-                            }
-                            .font(.system(size: 12))
-                            .foregroundStyle(accent)
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.top, 8)
-                    }
                 }
 
                 Spacer(minLength: 16)

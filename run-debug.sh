@@ -4,20 +4,12 @@ cd "$(dirname "$0")"
 
 swift build
 
-APP=".build/debug/Notaty-Debug.app"
+APP=".build/debug/NotatyAppstore-Debug.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
 mkdir -p "$APP/Contents/Resources"
-mkdir -p "$APP/Contents/Frameworks"
 
-cp .build/debug/Notaty "$APP/Contents/MacOS/Notaty"
-
-# Copy Sparkle framework
-SPARKLE_FW=".build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework"
-if [[ -d "$SPARKLE_FW" ]]; then
-  cp -R "$SPARKLE_FW" "$APP/Contents/Frameworks/Sparkle.framework"
-  install_name_tool -add_rpath @executable_path/../Frameworks "$APP/Contents/MacOS/Notaty" 2>/dev/null || true
-fi
+cp .build/debug/NotatyAppstore "$APP/Contents/MacOS/NotatyAppstore"
 
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -25,11 +17,13 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <plist version="1.0">
 <dict>
     <key>CFBundleExecutable</key>
-    <string>Notaty</string>
+    <string>NotatyAppstore</string>
     <key>CFBundleIdentifier</key>
-    <string>com.notaty.debug</string>
+    <string>com.aldawsari.NotatyAppstore.debug</string>
     <key>CFBundleName</key>
-    <string>Notaty</string>
+    <string>NotatyAppstore</string>
+    <key>CFBundleDisplayName</key>
+    <string>NotatyAppstore</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>LSUIElement</key>
@@ -44,6 +38,6 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-codesign --force --deep --sign - "$APP"
-echo "Launching Notaty-Debug.app..."
+codesign --force --deep --sign - --entitlements NotatyAppstore.entitlements "$APP"
+echo "Launching NotatyAppstore-Debug.app..."
 open "$APP"

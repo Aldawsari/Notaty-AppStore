@@ -13,5 +13,6 @@ This checkout lives at:
 Planned direction:
 
 - Prepare for Apple App Store distribution.
-- Remove or replace direct-distribution-only features such as Sparkle OTA updates.
-- Keep App Store work on the `app-store-simplified` branch until the repository is fully separated.
+- Sparkle OTA updates and direct-distribution deployment scripts have been removed.
+- App Store work now lives on this repository's `main` branch.
+- The current local bundle identifier is `com.aldawsari.NotatyAppstore`.

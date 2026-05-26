@@ -4,15 +4,11 @@ import PackageDescription
 let package = Package(
     name: "NotatyAppstore",
     platforms: [.macOS(.v13)],
-    dependencies: [
-        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.7.0"),
-    ],
+    dependencies: [],
     targets: [
         .executableTarget(
             name: "NotatyAppstore",
-            dependencies: [
-                .product(name: "Sparkle", package: "Sparkle"),
-            ],
+            dependencies: [],
             path: "Sources/Notaty",
             linkerSettings: [
                 .unsafeFlags(["-Xlinker", "-sectcreate",
