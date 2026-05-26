@@ -21,7 +21,7 @@ enum AttachmentImporter {
         // main window on any click outside it. Clicking inside NSOpenPanel
         // (e.g. the "Open" button) is technically outside our window, so
         // without suppressing the dismiss flag the main window vanishes
-        // when the picker returns. Same pattern used by VoiceNoteView.
+        // when the picker returns.
         let appDelegate = NSApp.delegate as? AppDelegate
         appDelegate?.suppressDismiss = true
         defer { appDelegate?.suppressDismiss = false }

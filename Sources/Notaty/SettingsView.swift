@@ -51,39 +51,6 @@ struct SettingsView: View {
                     .frame(maxWidth: .infinity)
                 }
 
-                // ── Voice Notes ──────────────────────────────────────────
-                sectionHeader("Voice Notes")
-
-                settingsCard {
-                    Toggle(isOn: $settings.voiceNotesEnabled) {
-                        rowLabel("Enable Voice Notes")
-                    }
-                    .toggleStyle(.switch)
-
-                    if settings.voiceNotesEnabled {
-                        Divider()
-
-                        HStack {
-                            rowLabel("Transcription Language")
-                            Spacer()
-                            Picker("", selection: $settings.transcribeLanguage) {
-                                ForEach(Settings.supportedLanguages, id: \.id) { lang in
-                                    Text(lang.label).tag(lang.id)
-                                }
-                            }
-                            .labelsHidden()
-                            .frame(width: 160)
-                        }
-
-                        Divider()
-
-                        Toggle(isOn: $settings.autoTranscribe) {
-                            rowLabel("Transcribe automatically")
-                        }
-                        .toggleStyle(.switch)
-                    }
-                }
-
                 // ── Data ─────────────────────────────────────────────────
                 sectionHeader("Data")
 

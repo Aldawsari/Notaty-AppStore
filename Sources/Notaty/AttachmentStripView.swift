@@ -25,9 +25,7 @@ struct AttachmentStripView: View {
     private let preview = AttachmentPreviewCoordinator.shared
 
     private var attachments: [Attachment] {
-        // Voice-note attachments render in VoiceNoteStripView. Everything
-        // else (files, user-imported audio) renders here.
-        (store.note(for: noteID)?.attachments ?? []).filter { !$0.isVoiceNote }
+        store.note(for: noteID)?.attachments ?? []
     }
 
     var body: some View {
@@ -61,9 +59,6 @@ struct AttachmentStripView: View {
                     },
                     onRemove: {
                         confirmAndRemove([attachment.id])
-                    },
-                    onTranscribe: {
-                        transcribeAndInsert(attachment)
                     },
                     onShowInFinder: {
                         NSWorkspace.shared.activateFileViewerSelecting([NotesStore.attachmentURL(for: attachment)])
@@ -146,27 +141,6 @@ struct AttachmentStripView: View {
     private func handleDelete() {
         guard !selectedIDs.isEmpty else { return }
         confirmAndRemove(selectedIDs)
-    }
-
-    @MainActor
-    private func transcribeAndInsert(_ attachment: Attachment) {
-        let url = NotesStore.attachmentURL(for: attachment)
-        Task { @MainActor in
-            do {
-                let transcript = try await SpeechTranscriber.transcribe(audioURL: url)
-                store.update(id: noteID) { note in
-                    if !note.text.isEmpty { note.text += "\n\n---\n" }
-                    note.text += transcript
-                }
-            } catch {
-                let alert = NSAlert()
-                alert.messageText = "Couldn't transcribe"
-                alert.informativeText = "\(error)"
-                alert.alertStyle = .warning
-                alert.addButton(withTitle: "OK")
-                alert.runModal()
-            }
-        }
     }
 
     /// Shared confirm-then-remove path. Used by the chip's × button (single

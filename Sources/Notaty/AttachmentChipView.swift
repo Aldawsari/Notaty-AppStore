@@ -8,7 +8,6 @@ struct AttachmentChipView: View {
     let onSelect: () -> Void
     let onOpen: () -> Void
     let onRemove: () -> Void
-    let onTranscribe: () -> Void
     let onShowInFinder: () -> Void
 
     var body: some View {
@@ -59,12 +58,7 @@ struct AttachmentChipView: View {
         )
         .shadow(color: .black.opacity(0.04), radius: 1, y: 1)
         .contextMenu {
-            if attachment.isAudio {
-                Button("Play") { onOpen() }
-                Button("Transcribe & Insert") { onTranscribe() }
-            } else {
-                Button("Open") { onOpen() }
-            }
+            Button("Open") { onOpen() }
             Button("Show in Finder") { onShowInFinder() }
             Divider()
             Button("Remove", role: .destructive) { onRemove() }

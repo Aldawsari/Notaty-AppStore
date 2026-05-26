@@ -58,10 +58,6 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <string>AppIcon</string>
     <key>LSUIElement</key>
     <true/>
-    <key>NSMicrophoneUsageDescription</key>
-    <string>Notaty needs microphone access to record voice notes.</string>
-    <key>NSSpeechRecognitionUsageDescription</key>
-    <string>Notaty uses speech recognition to transcribe voice notes to text.</string>
     <key>NSScreenCaptureUsageDescription</key>
     <string>Notaty needs Screen Recording permission to capture regions of the screen for OCR.</string>
 </dict>

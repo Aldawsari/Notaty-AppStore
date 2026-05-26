@@ -11,8 +11,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var localEscMonitor: Any?
     private var statusDropOverlay: StatusItemDropOverlay?
     /// Set to true to prevent the window from auto-hiding on outside clicks.
-    /// Voice recording and transcription set this to avoid permission dialogs
-    /// dismissing the window.
+    /// File pickers and permission dialogs set this to avoid dismissing the
+    /// window while AppKit owns the interaction.
     var suppressDismiss = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -52,11 +52,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ) { _ in
             PendingAttachments.shared.clear()
         }
-
-        // Migrate legacy voice notes (audioFilename → attachments[]) before
-        // the orphan sweep runs, so migrated files are referenced when we
-        // check for orphans.
-        VoiceMigration.runIfNeeded()
 
         // Run once on launch: drop any attachment file no longer referenced
         // by a note's metadata.
@@ -101,14 +96,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         newNoteItem.target = self
         fileMenu.addItem(newNoteItem)
-        let newVoiceItem = NSMenuItem(
-            title: "New Voice Note",
-            action: #selector(newVoiceNote),
-            keyEquivalent: "n"
-        )
-        newVoiceItem.keyEquivalentModifierMask = [.command, .shift]
-        newVoiceItem.target = self
-        fileMenu.addItem(newVoiceItem)
         let switcherItem = NSMenuItem(
             title: "Quick Switcher…",
             action: #selector(openQuickSwitcher),
@@ -216,10 +203,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let newItem = NSMenuItem(title: "New Note", action: #selector(newNote), keyEquivalent: "t")
         newItem.target = self
         menu.addItem(newItem)
-        let voiceItem = NSMenuItem(title: "New Voice Note", action: #selector(newVoiceNote), keyEquivalent: "")
-        voiceItem.target = self
-        menu.addItem(voiceItem)
-        menu.addItem(NSMenuItem.separator())
         menu.addItem(withTitle: "Quit Notaty", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         if let button = statusItem.button, let event = NSApp.currentEvent {
             NSMenu.popUpContextMenu(menu, with: event, for: button)
@@ -513,35 +496,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSApp.activate(ignoringOtherApps: true)
             positionUnderStatusItem(window)
             window.makeKeyAndOrderFront(nil)
-        }
-    }
-
-    @objc func newVoiceNote() {
-        guard Settings.shared.voiceNotesEnabled else { return }
-        guard !RecordingSession.shared.isActive else { return }
-
-        // Create a regular note. No type=.voice. Title is timestamp-based.
-        let newNote = NotesStore.shared.addNote()
-        let f = DateFormatter()
-        f.dateFormat = "MMM d, HH:mm"
-        let timestamp = f.string(from: Date())
-        NotesStore.shared.update(id: newNote.id) {
-            $0.title = "Recording \(timestamp)"
-        }
-        NotesStore.shared.selectedID = newNote.id
-
-        // Show the window if it's hidden (preserved from old method).
-        guard let window = windowController.window else { return }
-        if !window.isVisible {
-            NSApp.activate(ignoringOtherApps: true)
-            positionUnderStatusItem(window)
-            window.makeKeyAndOrderFront(nil)
-        }
-
-        // Start recording in the new note. async to ensure the window/UI has
-        // settled before the recording UI takes over.
-        DispatchQueue.main.async {
-            RecordingSession.shared.start(in: newNote.id)
         }
     }
 

@@ -184,7 +184,7 @@ private struct TabStrip: View {
 
 // NSViewRepresentable so the popup can anchor to a real NSView and we can
 // clone NSTextView's own contextual Edit menu (with its dynamic titles and
-// AppKit-provided Find/Spelling/Substitutions/Transformations/Speech submenus).
+// AppKit-provided system submenus).
 private struct HamburgerButton: NSViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator() }
 

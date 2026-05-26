@@ -39,9 +39,8 @@ bump the version argument for each deployment.
 
 For App Store packaging, archive/export with an Apple Distribution identity
 and an App Store Connect provisioning profile. `NotatyAppstore.entitlements`
-enables App Sandbox, microphone input, user-selected file access, and outbound
-network access for Speech recognition. The local `build.sh` can ad-hoc sign
-for validation if no matching identity is available.
+enables App Sandbox and user-selected file access. The local `build.sh` can
+ad-hoc sign for validation if no matching identity is available.
 
 ## Project layout
 

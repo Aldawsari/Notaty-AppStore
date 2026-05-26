@@ -57,9 +57,7 @@ final class NotesStore: ObservableObject {
     func delete(id: UUID) {
         guard let index = indexByID[id] else { return }
         let note = notes[index]
-        // Cascade: move all attachment sidecar files to the Trash. Audio
-        // files are now in attachments[] (post voice migration), so we no
-        // longer need to special-case voice.
+        // Cascade: move all attachment sidecar files to the Trash.
         for attachment in note.attachments {
             let url = Self.attachmentURL(for: attachment)
             try? FileManager.default.trashItem(at: url, resultingItemURL: nil)
