@@ -2,14 +2,14 @@
 import PackageDescription
 
 let package = Package(
-    name: "Notaty",
+    name: "NotatyAppstore",
     platforms: [.macOS(.v13)],
     dependencies: [
         .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.7.0"),
     ],
     targets: [
         .executableTarget(
-            name: "Notaty",
+            name: "NotatyAppstore",
             dependencies: [
                 .product(name: "Sparkle", package: "Sparkle"),
             ],
