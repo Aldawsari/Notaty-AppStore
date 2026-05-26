@@ -48,8 +48,6 @@ enum NotatyActions {
                 .appendingPathComponent(UUID().uuidString)
             try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
 
-            // Human-readable .txt files (preserved for backward compat —
-            // users who unzip with Finder still see readable text).
             for (index, note) in notes.enumerated() {
                 let trimmed = note.title.trimmingCharacters(in: .whitespacesAndNewlines)
                 let safeName = (trimmed.isEmpty ? "Untitled" : trimmed)
@@ -58,26 +56,6 @@ enum NotatyActions {
                 let fileName = "\(index + 1) - \(safeName).txt"
                 let fileURL = tempDir.appendingPathComponent(fileName)
                 try note.text.write(to: fileURL, atomically: true, encoding: .utf8)
-            }
-
-            // Manifest with full structured data — this is what Notaty itself
-            // reads on import to round-trip attachments. Older Notaty versions
-            // (pre-attachments) ignore the manifest and just import the .txt.
-            let manifestURL = tempDir.appendingPathComponent("_manifest.json")
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            try encoder.encode(notes).write(to: manifestURL, options: .atomic)
-
-            // Copy each attachment file into the export tree, preserving
-            // the storedName (so the manifest's references resolve).
-            let attachmentsExportDir = tempDir.appendingPathComponent("attachments")
-            try FileManager.default.createDirectory(at: attachmentsExportDir, withIntermediateDirectories: true)
-            for note in notes {
-                for attachment in note.attachments {
-                    let src = NotesStore.attachmentURL(for: attachment)
-                    let dest = attachmentsExportDir.appendingPathComponent(attachment.storedName)
-                    try? FileManager.default.copyItem(at: src, to: dest)
-                }
             }
 
             // Create zip using ditto (macOS built-in, preserves Unicode filenames)
@@ -157,17 +135,6 @@ enum NotatyActions {
                 return
             }
 
-            // Prefer the manifest if present (round-trips attachments).
-            // Fall back to .txt-only for old/foreign zips.
-            if let importedFromManifest = importFromManifestIfAvailable(in: tempDir) {
-                if importedFromManifest > 0 {
-                    NotesStore.shared.selectedID = NotesStore.shared.notes.last?.id
-                }
-                try? FileManager.default.removeItem(at: tempDir)
-                return
-            }
-
-            // Legacy .txt-only path (pre-attachments exports).
             let enumerator = FileManager.default.enumerator(at: tempDir, includingPropertiesForKeys: nil)
             var imported = 0
 
@@ -199,65 +166,6 @@ enum NotatyActions {
             alert.runModal()
             try? FileManager.default.removeItem(at: tempDir)
         }
-    }
-
-    /// Returns the number of notes imported, or `nil` if no manifest was found.
-    /// When found, copies each attachment file into Notaty's attachments dir
-    /// and pushes the full Note structures (with attachments[]) into the store.
-    private static func importFromManifestIfAvailable(in tempDir: URL) -> Int? {
-        let manifestURL = tempDir.appendingPathComponent("_manifest.json")
-        guard FileManager.default.fileExists(atPath: manifestURL.path),
-              let data = try? Data(contentsOf: manifestURL),
-              let importedNotes = try? JSONDecoder().decode([Note].self, from: data)
-        else {
-            return nil
-        }
-
-        // Restore attachment files into Notaty's attachments dir.
-        NotesStore.shared.ensureAttachmentsDir()
-        let exportAttachmentsDir = tempDir.appendingPathComponent("attachments")
-
-        for note in importedNotes {
-            for attachment in note.attachments {
-                let src = exportAttachmentsDir.appendingPathComponent(attachment.storedName)
-                let dest = NotesStore.attachmentURL(for: attachment)
-                if FileManager.default.fileExists(atPath: src.path),
-                   !FileManager.default.fileExists(atPath: dest.path) {
-                    try? FileManager.default.copyItem(at: src, to: dest)
-                }
-            }
-        }
-
-        // Append (don't replace) — same semantics as the .txt path. Dedupe
-        // both against the existing store AND within the imported batch
-        // itself: a corrupt manifest with internal duplicate IDs used to crash
-        // rebuildIndex (Dictionary uniqueness trap).
-        let store = NotesStore.shared
-        var seenIDs = Set(store.notes.map(\.id))
-        var toAppend: [Note] = []
-        for note in importedNotes where seenIDs.insert(note.id).inserted {
-            toAppend.append(note)
-        }
-        for note in toAppend {
-            store.notes.append(note)
-        }
-        // Force the index rebuild + persistence by triggering a published change
-        // (mutating notes via `append` directly bypasses indexByID; the store's
-        // existing helpers do this on add/delete. For import, call `addNote`
-        // dance is wrong because we want to preserve the original IDs. So we
-        // do it manually:)
-        store.rebuildIndexAfterImport()
-
-        return toAppend.count
-    }
-
-    @MainActor
-    static func attachToSelectedNote() {
-        guard let id = NotesStore.shared.selectedID else {
-            NSSound.beep()
-            return
-        }
-        AttachmentImporter.openPicker(targetNoteID: id)
     }
 
     // Send a standard editing action through the responder chain so it reaches

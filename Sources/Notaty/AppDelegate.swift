@@ -1,6 +1,5 @@
 import AppKit
 import Combine
-import QuickLookUI
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
@@ -9,7 +8,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var pinnedCancellable: AnyCancellable?
     private var outsideClickMonitor: Any?
     private var localEscMonitor: Any?
-    private var statusDropOverlay: StatusItemDropOverlay?
     /// Set to true to prevent the window from auto-hiding on outside clicks.
     /// File pickers and permission dialogs set this to avoid dismissing the
     /// window while AppKit owns the interaction.
@@ -29,7 +27,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             button.action = #selector(handleClick)
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
-        installStatusDropOverlay()
 
         // Ensure there is always at least one note on first launch.
         if NotesStore.shared.notes.isEmpty {
@@ -43,19 +40,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 NoteWindowController.saveSize(preset.size)
                 self?.applyDefaultSize(preset.size, reposition: true)
             }
-
-        // Clear any pending menu-bar drop when the window closes.
-        NotificationCenter.default.addObserver(
-            forName: NSWindow.willCloseNotification,
-            object: windowController.window,
-            queue: .main
-        ) { _ in
-            PendingAttachments.shared.clear()
-        }
-
-        // Run once on launch: drop any attachment file no longer referenced
-        // by a note's metadata.
-        NotesStore.shared.cleanupOrphanedAttachmentFiles()
 
         // Respond to runtime toggles of the pinned setting:
         // - true → ensure the dismiss monitor is removed (window stays put)
@@ -112,16 +96,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         saveAsItem.target = self
         fileMenu.addItem(saveAsItem)
 
-        fileMenu.addItem(NSMenuItem.separator())
-
-        let attachItem = NSMenuItem(
-            title: "Attach File…",
-            action: #selector(attachFile),
-            keyEquivalent: "a"
-        )
-        attachItem.keyEquivalentModifierMask = [.command, .option]
-        attachItem.target = self
-        fileMenu.addItem(attachItem)
         fileMenuItem.submenu = fileMenu
         mainMenu.addItem(fileMenuItem)
 
@@ -235,10 +209,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func hideWindow() {
-        // Note: do NOT clear pending here. Outside-click hide is not an
-        // explicit cancel — the user may be reaching to Finder to drag
-        // another file. Pending survives until explicit Esc / banner × /
-        // red close button.
         guard let window = windowController.window, window.isVisible else { return }
         removeDismissMonitors()
         NSAnimationContext.runAnimationGroup({ context in
@@ -251,31 +221,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         })
     }
 
-    private func installStatusDropOverlay() {
-        guard let button = statusItem.button,
-              let buttonSuperview = button.superview else { return }
-
-        let overlay = StatusItemDropOverlay(frame: button.frame)
-        overlay.autoresizingMask = [.width, .height]
-        overlay.onDrop = { [weak self] urls in
-            self?.handleStatusItemDrop(urls)
-        }
-        buttonSuperview.addSubview(overlay, positioned: .above, relativeTo: button)
-        statusDropOverlay = overlay
-    }
-
-    private func handleStatusItemDrop(_ urls: [URL]) {
-        PendingAttachments.shared.add(urls)
-        // Reveal the window so the user can pick a destination note.
-        if let window = windowController.window, !window.isVisible {
-            toggleWindow()
-        } else {
-            // Already visible — bring to front so the banner is seen.
-            NSApp.activate(ignoringOtherApps: true)
-            windowController.window?.makeKeyAndOrderFront(nil)
-        }
-    }
-
     private func installDismissMonitors() {
         outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: [.leftMouseDown, .rightMouseDown]
@@ -285,7 +230,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         localEscMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             if event.keyCode == 53 && event.window === self?.windowController.window {
-                PendingAttachments.shared.clear()
                 self?.hideWindow()
                 return nil
             }
@@ -319,10 +263,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func saveAs() {
         NotatyActions.saveSelectedNoteAs()
-    }
-
-    @MainActor @objc func attachFile() {
-        NotatyActions.attachToSelectedNote()
     }
 
     @objc func exportAll() {
@@ -520,21 +460,5 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         let y = visible.maxY - size.height
         window.setFrameOrigin(NSPoint(x: x, y: y))
-    }
-}
-
-extension AppDelegate {
-    override func acceptsPreviewPanelControl(_ panel: QLPreviewPanel!) -> Bool {
-        true
-    }
-
-    override func beginPreviewPanelControl(_ panel: QLPreviewPanel!) {
-        panel.dataSource = AttachmentPreviewCoordinator.shared
-        panel.delegate = AttachmentPreviewCoordinator.shared
-    }
-
-    override func endPreviewPanelControl(_ panel: QLPreviewPanel!) {
-        panel.dataSource = nil
-        panel.delegate = nil
     }
 }

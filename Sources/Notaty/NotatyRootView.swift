@@ -2,17 +2,9 @@ import SwiftUI
 
 struct NotatyRootView: View {
     @ObservedObject private var store = NotesStore.shared
-    @ObservedObject private var pending = PendingAttachments.shared
 
     var body: some View {
         VStack(spacing: 0) {
-            if pending.isPending {
-                MenuBarDropBanner(
-                    urls: pending.urls,
-                    onCancel: { pending.clear() },
-                    onRemove: { pending.remove($0) }
-                )
-            }
             TabBar(store: store)
             Divider()
                 .opacity(0.5)
@@ -38,18 +30,8 @@ struct NotatyRootView: View {
 private struct TabBar: View {
     @ObservedObject var store: NotesStore
 
-    /// Creates a new note. If there are pending attachments from a menu bar
-    /// drop, attaches them to the new note.
     private func handleNewNote() {
-        let new = store.addNote()
-        let pending = PendingAttachments.shared.consume()
-        if !pending.isEmpty {
-            // Defer one runloop tick so the new note is fully registered in
-            // NotesStore.indexByID before addAttachments is called.
-            DispatchQueue.main.async {
-                AttachmentImporter.attach(urls: pending, to: new.id)
-            }
-        }
+        store.addNote()
     }
 
     var body: some View {
@@ -225,8 +207,6 @@ private struct TabButton: View {
     @ObservedObject var store: NotesStore
     var isDragging: Bool = false
 
-    @State private var isDropTargeted: Bool = false
-
     private var isActive: Bool { store.selectedID == note.id }
     private var label: String {
         let trimmed = note.title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -257,82 +237,19 @@ private struct TabButton: View {
             RoundedRectangle(cornerRadius: 6)
                 .fill(isActive ? Color.primary.opacity(0.12) : Color.primary.opacity(0.04))
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: 6)
-                .strokeBorder(Color.accentColor, lineWidth: isDropTargeted ? 2 : 0)
-        )
         .opacity(isDragging ? 0.4 : 1.0)
         .contentShape(Rectangle())
         .onTapGesture {
             store.select(note.id)
-            let pending = PendingAttachments.shared.consume()
-            if !pending.isEmpty {
-                DispatchQueue.main.async {
-                    AttachmentImporter.attach(urls: pending, to: note.id)
-                }
-            }
         }
-        .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
-            handleDrop(providers: providers)
-        }
-    }
-
-    @MainActor
-    private func handleDrop(providers: [NSItemProvider]) -> Bool {
-        let group = DispatchGroup()
-        var urls: [URL] = []
-        for provider in providers {
-            group.enter()
-            _ = provider.loadObject(ofClass: URL.self) { url, _ in
-                if let url { urls.append(url) }
-                group.leave()
-            }
-        }
-        group.notify(queue: .main) { [noteID = note.id, store] in
-            let droppedStoredNames = Set(urls.map { $0.lastPathComponent })
-            let pendingMulti = MultiDragState.shared.pendingStoredNames
-
-            // Multi-move: if the manifest is non-empty AND at least one of the
-            // dropped URLs matches a name in the manifest, treat this as a
-            // multi-selection drag. Move ALL stored names from the manifest.
-            if !pendingMulti.isEmpty,
-               droppedStoredNames.contains(where: { pendingMulti.contains($0) }) {
-                for name in pendingMulti {
-                    store.moveAttachment(storedName: name, to: noteID)
-                }
-                MultiDragState.shared.pendingStoredNames = []
-                return
-            }
-
-            // Single move (internal) or external file. Match by storedName —
-            // robust against /private/ symlink prefixes on URL round-trip.
-            let knownStoredNames: Set<String> = Set(store.notes.flatMap { $0.attachments.map(\.storedName) })
-            var externalURLs: [URL] = []
-            for url in urls {
-                let storedName = url.lastPathComponent
-                if knownStoredNames.contains(storedName) {
-                    store.moveAttachment(storedName: storedName, to: noteID)
-                } else {
-                    externalURLs.append(url)
-                }
-            }
-            if !externalURLs.isEmpty {
-                AttachmentImporter.attach(urls: externalURLs, to: noteID)
-            }
-        }
-        return true
     }
 
     private func confirmDelete() {
         // Skip the prompt for notes that were never really used: empty body,
-        // no attachments, and either empty or default "Untitled" title.
-        // A brand-new tab the user immediately closes shouldn't require a
-        // confirmation. But if the note has any attachments, that's user
-        // data even with an empty body — always confirm.
+        // and either empty or default "Untitled" title.
         let trimmedTitle = note.title.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedText = note.text.trimmingCharacters(in: .whitespacesAndNewlines)
         let isUntouched = trimmedText.isEmpty
-            && note.attachments.isEmpty
             && (trimmedTitle.isEmpty || trimmedTitle == "Untitled")
         if isUntouched {
             store.delete(id: note.id)

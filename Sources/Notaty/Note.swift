@@ -9,24 +9,21 @@ struct Note: Identifiable, Codable, Equatable {
     var title: String
     var text: String
     var direction: NoteDirection
-    var attachments: [Attachment]
 
     init(
         id: UUID = UUID(),
         title: String = "",
         text: String = "",
-        direction: NoteDirection = .auto,
-        attachments: [Attachment] = []
+        direction: NoteDirection = .auto
     ) {
         self.id = id
         self.title = title
         self.text = text
         self.direction = direction
-        self.attachments = attachments
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, title, text, direction, attachments
+        case id, title, text, direction
     }
 
     init(from decoder: Decoder) throws {
@@ -35,6 +32,5 @@ struct Note: Identifiable, Codable, Equatable {
         self.title = try c.decode(String.self, forKey: .title)
         self.text = try c.decode(String.self, forKey: .text)
         self.direction = try c.decodeIfPresent(NoteDirection.self, forKey: .direction) ?? .auto
-        self.attachments = try c.decodeIfPresent([Attachment].self, forKey: .attachments) ?? []
     }
 }

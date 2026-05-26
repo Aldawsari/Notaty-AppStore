@@ -4,13 +4,10 @@ import SwiftUI
 struct NoteTextEditor: NSViewRepresentable {
     @Binding var text: String
     let directionMode: NoteDirection
-    var noteID: UUID? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
 
     func makeNSView(context: Context) -> NSScrollView {
-        // Build a scrollable text view backed by NotatyTextView (so paste
-        // can intercept file-URL pastes and divert them to attachments).
         let scrollView = NSScrollView()
         scrollView.hasVerticalScroller = true
         scrollView.hasHorizontalScroller = false
@@ -19,7 +16,7 @@ struct NoteTextEditor: NSViewRepresentable {
         scrollView.drawsBackground = false
 
         let contentSize = scrollView.contentSize
-        let textView = NotatyTextView(frame: NSRect(origin: .zero, size: contentSize))
+        let textView = NSTextView(frame: NSRect(origin: .zero, size: contentSize))
         textView.autoresizingMask = [.width]
         textView.isVerticallyResizable = true
         textView.isHorizontallyResizable = false
@@ -44,7 +41,6 @@ struct NoteTextEditor: NSViewRepresentable {
 
         context.coordinator.textView = textView
         context.coordinator.directionMode = directionMode
-        textView.attachmentTargetNoteID = noteID
         return scrollView
     }
 
@@ -72,9 +68,6 @@ struct NoteTextEditor: NSViewRepresentable {
 
         guard let textView = scrollView.documentView as? NSTextView else { return }
         context.coordinator.textView = textView
-        if let nty = textView as? NotatyTextView {
-            nty.attachmentTargetNoteID = noteID
-        }
 
         var contentReplaced = false
         if textView.string != text {
@@ -195,22 +188,5 @@ struct NoteTextEditor: NSViewRepresentable {
 
             textView.needsDisplay = true
         }
-    }
-}
-
-/// NSTextView subclass that lets file-URL pastes flow to the attachment
-/// importer instead of being inserted as text. Plain-text pastes fall
-/// through to super and behave exactly as before.
-final class NotatyTextView: NSTextView {
-
-    /// Set externally — the note ID this view is editing.
-    var attachmentTargetNoteID: UUID?
-
-    override func paste(_ sender: Any?) {
-        if let id = attachmentTargetNoteID,
-           AttachmentImporter.attachFromPasteboard(NSPasteboard.general, to: id) {
-            return
-        }
-        super.paste(sender)
     }
 }

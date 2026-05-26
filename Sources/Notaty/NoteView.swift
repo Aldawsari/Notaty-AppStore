@@ -22,20 +22,7 @@ struct NoteView: View {
                 TextField("Untitled", text: store.titleBinding(for: noteID))
                     .textFieldStyle(.plain)
                     .font(.system(size: 14, weight: .semibold))
-                    // Apply RTL alignment to the title text only — keep the
-                    // row's icon order fixed (paperclip + mic on the right)
-                    // regardless of the note's detected language.
                     .environment(\.layoutDirection, layoutDirection)
-
-                Button(action: { AttachmentImporter.openPicker(targetNoteID: noteID) }) {
-                    Image(systemName: "paperclip")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.secondary)
-                        .frame(width: 22, height: 22)
-                }
-                .buttonStyle(.plain)
-                .help("Attach file (⌥⌘A)")
-
             }
             .padding(.horizontal, 12)
             .padding(.top, 10)
@@ -43,36 +30,11 @@ struct NoteView: View {
 
             Divider()
 
-            AttachmentStripView(noteID: noteID)
-
             NoteTextEditor(
                 text: store.textBinding(for: noteID),
-                directionMode: note?.direction ?? .auto,
-                noteID: noteID
+                directionMode: note?.direction ?? .auto
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .onDrop(of: [.fileURL], isTargeted: nil) { providers in
-            handleDrop(providers: providers)
-        }
-    }
-
-    @MainActor
-    private func handleDrop(providers: [NSItemProvider]) -> Bool {
-        let group = DispatchGroup()
-        var urls: [URL] = []
-
-        for provider in providers {
-            group.enter()
-            _ = provider.loadObject(ofClass: URL.self) { url, _ in
-                if let url { urls.append(url) }
-                group.leave()
-            }
-        }
-
-        group.notify(queue: .main) { [noteID] in
-            AttachmentImporter.attach(urls: urls, to: noteID)
-        }
-        return true
     }
 }
