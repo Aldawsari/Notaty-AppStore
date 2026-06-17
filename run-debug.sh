@@ -36,6 +36,9 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-codesign --force --deep --sign - --entitlements NotatyAppstore.entitlements "$APP"
+# Use sandbox-only entitlements for the local debug build. The App Store
+# entitlements (application-identifier / team-identifier) require a matching
+# provisioning profile and make an ad-hoc-signed debug bundle fail to launch.
+codesign --force --deep --sign - --entitlements NotatyAppstore-Debug.entitlements "$APP"
 echo "Launching NotatyAppstore-Debug.app..."
 open "$APP"
