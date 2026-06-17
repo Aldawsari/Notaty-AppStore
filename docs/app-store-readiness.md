@@ -9,6 +9,11 @@ Last checked: June 17, 2026
   `true` and called `SMAppService.mainApp.register()` on first launch. Fixed in
   build `0.1.1` — launch-at-login now defaults off and registers only on
   explicit user toggle.
+- **2026-06-17 — Fix committed and pushed.** Commit `a1fe48d` on `main`
+  (pushed to `origin`, `github.com/Aldawsari/Notaty-AppStore`). Verified the
+  app no longer registers a login item on a fresh launch. Signed
+  `dist/Notaty-0.1.1.pkg` built and ready; not yet uploaded to App Store
+  Connect.
 
 ## Current App Store Connect state
 
