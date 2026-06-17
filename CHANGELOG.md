@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.1.2 (App Store)
+
+- Embed a Mac App Store provisioning profile so the build is TestFlight-eligible (resolves ITMS-90889). No user-facing changes.
+
 ## v0.1.1 (App Store)
 
 - Launch at Login no longer defaults to on. The app never registers a login item without explicit user consent — it is enabled only when the user turns on the toggle in Settings. Resolves App Store review rejection for auto-launching at login without consent.

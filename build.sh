@@ -67,6 +67,14 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
+# Embed the Mac App Store provisioning profile so the build is TestFlight
+# eligible (fixes ITMS-90889). Optional: skipped if the file is absent.
+PROFILE="$ROOT/Notaty_MacAppStore.provisionprofile"
+if [[ -f "$PROFILE" ]]; then
+  echo "Embedding provisioning profile..."
+  cp "$PROFILE" "$APP/Contents/embedded.provisionprofile"
+fi
+
 CERT_NAME="${APPSTORE_SIGN_IDENTITY:-Apple Distribution}"
 
 if security find-certificate -c "$CERT_NAME" 2>/dev/null | grep -q "$CERT_NAME"; then

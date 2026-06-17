@@ -11,25 +11,32 @@ Last checked: June 17, 2026
   explicit user toggle.
 - **2026-06-17 — Fix committed and pushed.** Commit `a1fe48d` on `main`
   (pushed to `origin`, `github.com/Aldawsari/Notaty-AppStore`). Verified the
-  app no longer registers a login item on a fresh launch. Signed
-  `dist/Notaty-0.1.1.pkg` built and ready; not yet uploaded to App Store
-  Connect.
+  app no longer registers a login item on a fresh launch.
+- **2026-06-17 — Build 0.1.1 uploaded** (Delivery UUID
+  `6b6fd529-e532-41d6-bfcc-cf38ba505d59`). Apple returned warning ITMS-90889:
+  bundle missing a provisioning profile (not TestFlight-eligible; App Store
+  review unaffected).
+- **2026-06-17 — Build 0.1.2 uploaded** (Delivery UUID
+  `040f422b-41c3-497f-b639-872973228b97`). Embedded a Mac App Store
+  provisioning profile (`MAC_APP_STORE`, cert `49G7UGP79B`, bundle
+  `S44HWZ9ZH3`) and added `application-identifier` / `team-identifier`
+  entitlements. Validation passed with no errors and no warnings — ITMS-90889
+  resolved. Use build 0.1.2 for the submission.
 
 ## Current App Store Connect state
 
 - App: `Notaty Menu Bar Notes`
 - App ID: `6775782063`
-- Version: `0.1` (resubmitting with build `0.1.1`)
+- Version: `0.1` (resubmitting with build `0.1.2`)
 - Version state: `PREPARE_FOR_SUBMISSION`
 - Version ID: `db1f4de3-39ee-43fb-be81-2dd116d113a9`
-- Previous build ID: `b4602cc1-6e2a-44d0-bc1d-7da072899919` (rejected)
-- New build: `dist/Notaty-0.1.1.pkg` (CFBundleVersion `0.1.1`), signed and ready
-  to upload
+- Previous build ID: `b4602cc1-6e2a-44d0-bc1d-7da072899919` (rejected, 0.1)
+- Uploaded builds: `0.1.1` (warning ITMS-90889), `0.1.2` (clean — use this)
 
-## Resubmission steps (build 0.1.1)
+## Resubmission steps (build 0.1.2)
 
-1. Upload `dist/Notaty-0.1.1.pkg` via Transporter / App Store Connect tooling.
-2. Attach the new `0.1.1` build to the version.
+1. Build 0.1.2 uploaded — wait for processing to finish (status `VALID`).
+2. Attach the `0.1.2` build to the version.
 3. In App Review notes, state: "Launch at Login is now off by default; the app
    no longer registers a login item without explicit user consent."
 4. Submit for review.
