@@ -10,6 +10,7 @@ let package = Package(
             name: "NotatyAppstore",
             dependencies: [],
             path: "Sources/Notaty",
+            exclude: ["Info.plist"],
             linkerSettings: [
                 .unsafeFlags(["-Xlinker", "-sectcreate",
                               "-Xlinker", "__TEXT",

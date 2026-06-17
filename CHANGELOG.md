@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.1.1 (App Store)
+
+- Launch at Login no longer defaults to on. The app never registers a login item without explicit user consent — it is enabled only when the user turns on the toggle in Settings. Resolves App Store review rejection for auto-launching at login without consent.
+
+## v0.1 (App Store)
+
+- First App Store submission of the App Store variant (voice notes, attachments, and Sparkle OTA removed). Menu bar notes with multi-note tabs, ⌘K quick switcher, RTL/Arabic support, screen-region OCR with QR decoding, and .txt export.
+
+---
+
+_History below is inherited from the direct-distribution Notaty app._
+
 ## v1.3.1
 
 - Bug fixes for voice note recording and transcription.

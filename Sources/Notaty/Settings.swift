@@ -90,14 +90,11 @@ final class Settings: ObservableObject {
 
         self.pinned = UserDefaults.standard.bool(forKey: Self.pinnedKey)
 
-        // Default to ON if never set
-        if UserDefaults.standard.object(forKey: Self.launchKey) == nil {
-            self.launchAtLogin = true
-            UserDefaults.standard.set(true, forKey: Self.launchKey)
-            updateLaunchAtLogin(true)
-        } else {
-            self.launchAtLogin = UserDefaults.standard.bool(forKey: Self.launchKey)
-        }
+        // Default to OFF. The app must never register itself as a login item
+        // without explicit user consent (Mac App Store guideline). Registration
+        // only happens when the user turns the toggle on, and SMAppService
+        // persists that choice across launches, so init never registers.
+        self.launchAtLogin = UserDefaults.standard.bool(forKey: Self.launchKey)
     }
 
     private func updateLaunchAtLogin(_ enabled: Bool) {

@@ -21,11 +21,13 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleIdentifier</key>
     <string>com.aldawsari.NotatyAppstore.debug</string>
     <key>CFBundleName</key>
-    <string>NotatyAppstore</string>
+    <string>Notaty</string>
     <key>CFBundleDisplayName</key>
-    <string>NotatyAppstore</string>
+    <string>Notaty</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.productivity</string>
     <key>LSUIElement</key>
     <true/>
     <key>NSScreenCaptureUsageDescription</key>

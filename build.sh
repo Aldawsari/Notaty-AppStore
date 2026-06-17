@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="${1:-1.0}"
+VERSION="${1:-0.1}"
 APP_NAME="NotatyAppstore"
+DISPLAY_NAME="Notaty"
 BUNDLE_ID="com.aldawsari.NotatyAppstore"
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 DIST="$ROOT/dist"
@@ -43,9 +44,9 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleIdentifier</key>
     <string>${BUNDLE_ID}</string>
     <key>CFBundleName</key>
-    <string>${APP_NAME}</string>
+    <string>${DISPLAY_NAME}</string>
     <key>CFBundleDisplayName</key>
-    <string>${APP_NAME}</string>
+    <string>${DISPLAY_NAME}</string>
     <key>CFBundleVersion</key>
     <string>${VERSION}</string>
     <key>CFBundleShortVersionString</key>
@@ -54,6 +55,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <string>APPL</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.productivity</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>LSUIElement</key>

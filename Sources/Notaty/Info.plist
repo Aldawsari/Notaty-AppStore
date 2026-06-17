@@ -2,5 +2,27 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <key>CFBundleExecutable</key>
+    <string>NotatyAppstore</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.aldawsari.NotatyAppstore</string>
+    <key>CFBundleName</key>
+    <string>Notaty</string>
+    <key>CFBundleDisplayName</key>
+    <string>Notaty</string>
+    <key>CFBundleVersion</key>
+    <string>0.1.1</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.1.1</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>13.0</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.productivity</string>
+    <key>LSUIElement</key>
+    <true/>
+    <key>NSScreenCaptureUsageDescription</key>
+    <string>Notaty needs Screen Recording permission to capture regions of the screen for OCR.</string>
 </dict>
 </plist>

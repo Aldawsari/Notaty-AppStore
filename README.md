@@ -31,7 +31,7 @@ Store preparation.
 
 ```sh
 swift build -c release
-./build.sh 1.0         # assembles dist/NotatyAppstore-1.0.app
+./build.sh 0.1         # assembles dist/NotatyAppstore-0.1.app
 ```
 
 `build.sh` refuses to overwrite an existing `dist/NotatyAppstore-<version>.app`, so
@@ -41,6 +41,15 @@ For App Store packaging, archive/export with an Apple Distribution identity
 and an App Store Connect provisioning profile. `NotatyAppstore.entitlements`
 enables App Sandbox and user-selected file access. The local `build.sh` can
 ad-hoc sign for validation if no matching identity is available.
+
+For a Mac App Store upload package, install the Apple Distribution and
+3rd Party Mac Developer Installer certificates, then run:
+
+```sh
+scripts/package-appstore.sh 0.1
+```
+
+The script produces `dist/Notaty-0.1.pkg` for Transporter/App Store Connect.
 
 ## Project layout
 
@@ -66,6 +75,8 @@ NotatyAppstore/
 │   └── VisualEffectView.swift
 ├── build.sh                   # App Store-oriented local .app bundle
 ├── run-debug.sh               # Builds and launches a debug .app bundle
+├── scripts/package-appstore.sh # Signed .pkg packaging for App Store upload
+├── docs/app-store-submission.md
 ├── NotatyAppstore.entitlements
 ├── APP_STORE_BUILD.md         # Repo safety marker for App Store variant
 ├── make_icon.swift            # Generates AppIcon.icns from SF Symbols

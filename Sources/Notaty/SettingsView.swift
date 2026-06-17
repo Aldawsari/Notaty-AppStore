@@ -4,7 +4,7 @@ import AppKit
 struct SettingsView: View {
     @ObservedObject private var settings = Settings.shared
 
-    private let appVersion = "v1.3.1"
+    private let appVersion = "v0.1.1"
     private let accent = Color.accentColor
 
     var body: some View {
